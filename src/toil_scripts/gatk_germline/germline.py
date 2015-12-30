@@ -37,7 +37,7 @@ import subprocess
 import multiprocessing
 from collections import OrderedDict
 from toil.job import Job
-
+from toil_scripts.batch_alignment.bwa_alignment import upload_to_s3
 
 def build_parser():
     """
@@ -292,7 +292,10 @@ def start(job, shared_ids, input_args, sample):
     input_args['uuid'] = uuid
     # Sample bam file holds a url?
     input_args['bam_url'] = url
-    input_args['output_dir'] = os.path.join(input_args['output_dir'], uuid)
+
+    if input_args['output_dir']:
+        input_args['output_dir'] = os.path.join(input_args['output_dir'], uuid)
+
     if input_args['ssec'] is None:
         ids['toil.bam'] = job.addChildJobFn(download_from_url, url, 'toil.bam').rv()
     else:
@@ -392,8 +395,7 @@ def apply_vqsr_snp(job, shared_ids, input_args):
     :param input_args: dictionary of input arguments
     """
     work_dir = job.fileStore.getLocalTempDir()
-    output_dir = input_args['output_dir']
-    make_directory(output_dir)
+
     uuid = input_args['uuid']
     input_files = ['ref.fa', 'ref.fa.fai', 'ref.dict', 'unified.raw.BOTH.gatk.vcf',
                    'HAPSNP.tranches', 'HAPSNP.recal']
@@ -409,8 +411,27 @@ def apply_vqsr_snp(job, shared_ids, input_args):
                '-recalFile', 'HAPSNP.recal',
                '-mode', 'SNP']
     docker_call(work_dir, command, 'quay.io/ucsc_cgl/gatk', inputs, [output])
-    move_to_output_dir(work_dir, output_dir, output)
 
+    upload_or_move(job, input_args, output)
+
+
+def upload_or_move(job, input_args, output):
+    
+    # are we moving this into a local dir, or up to s3?
+    if input_args['output_dir']:
+        # get output path and 
+        output_dir = input_args['output_dir']
+        work_dir = job.fileStore.getLocalTempDir()
+        make_directory(output_dir)
+        move_to_output_dir(work_dir, output_dir, output)
+
+    elif input_args['s3_dir']:
+        
+        job.addChildJobFn(upload_to_s3, job_vars, output, disk='80G')
+
+    else:
+
+        raise ValueError('No output_directory or s3_dir defined. Cannot determine where to store %s' % output)
 
 # Indel Recalibration
 def vqsr_indel(job, shared_ids, input_args):
@@ -453,8 +474,6 @@ def apply_vqsr_indel(job, shared_ids, input_args):
     :param input_args: dictionary of input arguments
     """
     work_dir = job.fileStore.getLocalTempDir()
-    output_dir = input_args['output_dir']
-    make_directory(output_dir)
     uuid = input_args['uuid']
     input_files = ['ref.fa', 'ref.fa.fai', 'ref.dict', 'unified.raw.BOTH.gatk.vcf',
                    'HAPINDEL.recal', 'HAPINDEL.tranches', 'HAPINDEL.plots']
@@ -470,7 +489,9 @@ def apply_vqsr_indel(job, shared_ids, input_args):
                '-recalFile', 'HAPINDEL.recal',
                '-mode', 'INDEL']
     docker_call(work_dir, command, 'quay.io/ucsc_cgl/gatk', inputs, [output])
-    move_to_output_dir(work_dir, output_dir, output)
+
+    upload_or_move(job, input_args, output)
+
 
 if __name__ == '__main__':
     args_parser = build_parser()

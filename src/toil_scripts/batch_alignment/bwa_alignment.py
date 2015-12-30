@@ -36,7 +36,11 @@ import errno
 import subprocess
 import shutil
 import tarfile
+import logging
 from toil.job import Job
+
+
+log = logging.getLogger(__name__)
 
 
 def build_parser():
@@ -175,6 +179,9 @@ def docker_call(work_dir, tool_parameters, tool, java_opts=None, outfile=None, s
     sudo: bool              If the user wants the docker command executed as sudo
     """
     base_docker_call = 'docker run --rm --log-driver=none -v {}:/data'.format(work_dir).split()
+
+    log.warn("Calling docker with %s." % " ".join(base_docker_call))
+
     if sudo:
         base_docker_call = ['sudo'] + base_docker_call
     if java_opts:
@@ -460,43 +467,55 @@ def add_readgroups(job, job_vars, bam_id):
                   'SM={}'.format(uuid)]
     docker_call(tool='quay.io/ucsc_cgl/picardtools:1.95--dd5ac549b95eb3e5d166a5e310417ef13651994e',
                 tool_parameters=parameters, work_dir=work_dir, java_opts='-Xmx15G', sudo=sudo)
-    ids['out_bam'] = job.fileStore.writeGlobalFile(os.path.join(work_dir, output_file))
+
     # Either write file to local output directory or upload to S3 cloud storage
     if input_args['output_dir']:
         copy_to_output_dir(work_dir=work_dir, output_dir=input_args['output_dir'], files=[output_file])
     if input_args['s3_dir']:
-        job.addChildJobFn(upload_to_s3, job_vars, disk='80G')
+        job.addChildJobFn(upload_to_s3, input_args, output_file, disk='80G')
 
 
-def upload_to_s3(job, job_vars):
+def upload_to_s3(job, input_args, output_file):
     """
     Uploads a file to S3 via S3AM with encryption.  This pipeline assumes all
     BAMS contain patient data and must be encrypted upon upload.
 
     job_vars: tuple         Contains the dictionaries: input_args and ids
     """
-    # Unpack variables
-    input_args, ids = job_vars
-    uuid = input_args['uuid']
-    key_path = input_args['ssec']
+
     work_dir = job.fileStore.getLocalTempDir()
+
     # Parse s3_dir to get bucket and s3 path
     s3_dir = input_args['s3_dir']
     bucket_name = s3_dir.lstrip('/').split('/')[0]
     bucket_dir = '/'.join(s3_dir.lstrip('/').split('/')[1:])
-    base_url = 'https://s3-us-west-2.amazonaws.com/'
-    url = os.path.join(base_url, bucket_name, bucket_dir, uuid + '.bam')
-    # Retrieve file to be uploaded
-    job.fileStore.readGlobalFile(ids['out_bam'], os.path.join(work_dir, uuid + '.bam'))
-    # Generate keyfile for upload
-    with open(os.path.join(work_dir, uuid + '.key'), 'wb') as f_out:
-        f_out.write(generate_unique_key(key_path, url))
-    # Upload to S3 via S3AM
-    s3am_command = ['s3am',
-                    'upload',
-                    '--sse-key-file', os.path.join(work_dir, uuid + '.key'),
-                    'file://{}'.format(os.path.join(work_dir, uuid + '.bam')),
-                    os.path.join('s3://', bucket_name, bucket_dir, uuid + '.bam')]
+    base_url = 'https://s3.amazonaws.com/'
+    url = os.path.join(base_url, bucket_name, bucket_dir, output_file)
+    
+    # does this need to be uploaded with encryption?
+    if input_args['ssec']:
+       key_path = input_args['ssec']
+
+       # Generate keyfile for upload
+       with open(os.path.join(work_dir, uuid + '.key'), 'wb') as f_out:
+           f_out.write(generate_unique_key(key_path, url))
+
+       # Upload to S3 via S3AM
+       s3am_command = ['s3am',
+                       'upload',
+                       '--sse-key-file', os.path.join(work_dir, uuid + '.key'),
+                       'file://{}'.format(os.path.join(work_dir, output_file)),
+                       os.path.join('s3://', bucket_name, bucket_dir, output_file)]
+
+    else:
+        # Upload to S3 via S3AM
+        s3am_command = ['s3am',
+                        'upload',
+                        'file://{}'.format(os.path.join(work_dir, output_file)),
+                        os.path.join('s3://', bucket_name, bucket_dir, output_file)]
+
+    # run upload
+    log.warn("Calling s3am with %s" % " ".join(s3am_command))
     subprocess.check_call(s3am_command)
 
 
