@@ -112,6 +112,7 @@ def adam_convert(job, masterIP, inFile, snpFile, inputs):
                 "computationalgenomicslab/adam", 
                 "--master", "spark://"+masterIP+":"+SPARK_MASTER_PORT, 
                 "--conf", "spark.hadoop.fs.default.name=hdfs://%s:%s" % (masterIP, HDFS_MASTER_PORT),
+                "--conf", "spark.local.dir=/ephemeral/spark",
                 "--", "transform", 
                 inFile, adamFile])
 
@@ -121,6 +122,7 @@ def adam_convert(job, masterIP, inFile, snpFile, inputs):
                 "computationalgenomicslab/adam", 
                 "--master", "spark://"+masterIP+":"+SPARK_MASTER_PORT, 
                 "--conf", "spark.hadoop.fs.default.name=hdfs://%s:%s" % (masterIP, HDFS_MASTER_PORT),
+                "--conf", "spark.local.dir=/ephemeral/spark",
                 "--", "vcf2adam", 
                 "-only_variants", 
                 snpFile, adamSnpFile])
@@ -146,6 +148,7 @@ def adam_transform(job, masterIP, inFile, snpFile, inputs):
                 "--conf", "spark.driver.memory=%s" % inputs["driverMemory"],
                 "--conf", "spark.executor.memory=%s" % inputs["executorMemory"],
                 "--conf", "spark.hadoop.fs.default.name=hdfs://%s:%s" % (masterIP, HDFS_MASTER_PORT),
+                "--conf", "spark.local.dir=/ephemeral/spark",
                 "--", "transform", 
                 inFile, "mkdups.adam", 
                 "-mark_duplicate_reads"])
@@ -156,6 +159,7 @@ def adam_transform(job, masterIP, inFile, snpFile, inputs):
                 "--conf", "spark.driver.memory=%s" % inputs["driverMemory"],
                 "--conf", "spark.executor.memory=%s" % inputs["executorMemory"],
                 "--conf", "spark.hadoop.fs.default.name=hdfs://%s:%s" % (masterIP, HDFS_MASTER_PORT),
+                "--conf", "spark.local.dir=/ephemeral/spark",
                 "--", "transform", 
                 "mkdups.adam", "ri.adam",
                 "-realign_indels"])
@@ -166,6 +170,7 @@ def adam_transform(job, masterIP, inFile, snpFile, inputs):
                 "--conf", "spark.driver.memory=%s" % inputs["driverMemory"],
                 "--conf", "spark.executor.memory=%s" % inputs["executorMemory"],
                 "--conf", "spark.hadoop.fs.default.name=hdfs://%s:%s" % (masterIP, HDFS_MASTER_PORT),
+                "--conf", "spark.local.dir=/ephemeral/spark",
                 "--", "transform", 
                 "ri.adam", "bqsr.adam",
                 "-recalibrate_base_qualities", 
@@ -177,6 +182,7 @@ def adam_transform(job, masterIP, inFile, snpFile, inputs):
                 "--conf", "spark.driver.memory=%s" % inputs["driverMemory"],
                 "--conf", "spark.executor.memory=%s" % inputs["executorMemory"],
                 "--conf", "spark.hadoop.fs.default.name=hdfs://%s:%s" % (masterIP, HDFS_MASTER_PORT),
+                "--conf", "spark.local.dir=/ephemeral/spark",
                 "--", "transform", 
                 "bqsr.adam", outFile,
                 "-sort_reads", "-single"])
@@ -217,7 +223,8 @@ class MasterService(Job.Service):
                                               "run",
                                               "--net=host",
                                               "-d",
-                                              "-e", "SPARK_MASTER_IP="+self.IP, 
+                                              "-v", "/mnt/ephemeral/:/ephemeral/:rw",
+                                              "-e", "SPARK_MASTER_IP="+self.IP,
                                               "computationalgenomicslab/apache-spark-master:1.5.2"])[:-1]
         self.hdfsContainerID = check_output(["docker",
                                              "run",
@@ -258,6 +265,7 @@ class WorkerService(Job.Service):
                                               "run",
                                               "--net=host", 
                                               "-d",
+                                              "-v", "/mnt/ephemeral/:/ephemeral/:rw",
                                               "-e", "\"SPARK_MASTER_IP="+self.masterIP+":"+SPARK_MASTER_PORT+"\"",
                                               "computationalgenomicslab/apache-spark-worker:1.5.2", 
                                               self.masterIP+":"+SPARK_MASTER_PORT])[:-1]
