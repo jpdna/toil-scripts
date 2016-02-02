@@ -35,6 +35,7 @@ import os
 from subprocess import call, check_call, check_output
 import sys
 from toil.job import Job
+from toil_scripts.batch_alignment.bwa_alignment import docker_call
 
 SPARK_MASTER_PORT = "7077"
 HDFS_MASTER_PORT = "8020"
@@ -48,7 +49,7 @@ def start_master(job, inputs):
     """
     log.write("master job\n")
     log.flush()
-    masterIP = job.addService(MasterService())
+    masterIP = job.addService(MasterService(inputs['sudo']))
     job.addChildJobFn(start_workers, masterIP, inputs)
 
 
@@ -59,7 +60,7 @@ def start_workers(job, masterIP, inputs):
     log.write("workers job\n")
     log.flush()
     for i in range(inputs['numWorkers']):
-        job.addService(WorkerService(masterIP))
+        job.addService(WorkerService(masterIP, inputs['sudo']))
     job.addFollowOnJobFn(download_data, masterIP, inputs)
 
 
@@ -67,16 +68,29 @@ def call_conductor(masterIP, inputs, src, dst):
     """
     Invokes the conductor container.
     """
-    check_call(["docker",
-                "run",
-                "--net=host",
-                "-e", "AWS_ACCESS_KEY="+inputs['accessKey'],
-                "-e", "AWS_SECRET_KEY="+inputs['secretKey'],
-                "quay.io/ucsc_cgl/conductor",
-                "--master", "spark://"+masterIP+":"+SPARK_MASTER_PORT,
-                "--conf", "spark.driver.memory=%s" % inputs["driverMemory"],
-                "--conf", "spark.executor.memory=%s" % inputs["executorMemory"],
-                "--", "-C", src, dst])
+    docker_call(tool = "quay.io/ucsc_cgl/conductor",
+                docker_parameters = ["--net=host",
+                                     "-e", "AWS_ACCESS_KEY="+inputs['accessKey'],
+                                     "-e", "AWS_SECRET_KEY="+inputs['secretKey']],
+                ["--master", "spark://"+masterIP+":"+SPARK_MASTER_PORT,
+                 "--conf", "spark.driver.memory=%s" % inputs["driverMemory"],
+                 "--conf", "spark.executor.memory=%s" % inputs["executorMemory"],
+                 "--", "-C", src, dst],
+                sudo = inputs['sudo'])
+
+)
+
+
+def call_adam(inputs, masterIP, arguments):
+
+    docker_call(tool = "quay.io/ucsc_cgl/adam:cd6ef41", 
+                docker_parameter = ["--net=host"],
+                ["--master", "spark://"+masterIP+":"+SPARK_MASTER_PORT, 
+                 "--conf", "spark.driver.memory=%s" % inputs["driverMemory"],
+                 "--conf", "spark.executor.memory=%s" % inputs["executorMemory"],
+                 "--conf", "spark.hadoop.fs.default.name=hdfs://%s:%s" % (masterIP, HDFS_MASTER_PORT),
+                 "--"] + arguments,
+                sudo = inputs['sudo'])
 
 
 def remove_file(masterIP, filename):
@@ -120,29 +134,21 @@ def adam_convert(job, masterIP, inFile, snpFile, inputs):
 
     adamFile = ".".join(os.path.splitext(inFile)[:-1])+".adam"
     
-    check_call(["docker", "run", "--net=host",
-                "quay.io/ucsc_cgl/adam:cd6ef41", 
-                "--master", "spark://"+masterIP+":"+SPARK_MASTER_PORT, 
-                "--conf", "spark.driver.memory=%s" % inputs["driverMemory"],
-                "--conf", "spark.executor.memory=%s" % inputs["executorMemory"],
-                "--conf", "spark.hadoop.fs.default.name=hdfs://%s:%s" % (masterIP, HDFS_MASTER_PORT),
-                "--", "transform", 
-                inFile, adamFile])
-    
+    call_adam(masterIP,
+              inputs,
+              ["transform", 
+               inFile, adamFile])
+              
     inFileName = inFile.split("/")[-1]
     remove_file(masterIP, inFileName)
 
     adamSnpFile = ".".join(os.path.splitext(snpFile)[:-1])+".var.adam"
 
-    check_call(["docker", "run", "--net=host",
-                "quay.io/ucsc_cgl/adam:cd6ef41", 
-                "--master", "spark://"+masterIP+":"+SPARK_MASTER_PORT, 
-                "--conf", "spark.driver.memory=%s" % inputs["driverMemory"],
-                "--conf", "spark.executor.memory=%s" % inputs["executorMemory"],
-                "--conf", "spark.hadoop.fs.default.name=hdfs://%s:%s" % (masterIP, HDFS_MASTER_PORT),
-                "--", "vcf2adam", 
-                "-only_variants", 
-                snpFile, adamSnpFile])
+    call_adam(masterIP,
+              inputs,
+              ["vcf2adam", 
+               "-only_variants", 
+               snpFile, adamSnpFile])
 
     snpFileName = snpFile.split("/")[-1]
     remove_file(masterIP, snpFileName)
@@ -162,58 +168,42 @@ def adam_transform(job, masterIP, inFile, snpFile, inputs):
 
     outFile = ".".join(os.path.splitext(inFile)[:-1])+".processed.bam"
 
-    check_call(["docker", "run", "--net=host",
-                "quay.io/ucsc_cgl/adam:cd6ef41", 
-                "--master", "spark://"+masterIP+":"+SPARK_MASTER_PORT, 
-                "--conf", "spark.driver.memory=%s" % inputs["driverMemory"],
-                "--conf", "spark.executor.memory=%s" % inputs["executorMemory"],
-                "--conf", "spark.hadoop.fs.default.name=hdfs://%s:%s" % (masterIP, HDFS_MASTER_PORT),
-                "--", "transform", 
-                inFile,  "hdfs://%s:%s/mkdups.adam" % (masterIP, HDFS_MASTER_PORT),
-                "-aligned_read_predicate",
-                "-limit_projection",
-                "-mark_duplicate_reads"])
+    call_adam(masterIP,
+              inputs,
+              ["transform", 
+               inFile,  "hdfs://%s:%s/mkdups.adam" % (masterIP, HDFS_MASTER_PORT),
+               "-aligned_read_predicate",
+               "-limit_projection",
+               "-mark_duplicate_reads"])
 
     inFileName = inFile.split("/")[-1]
     remove_file(masterIP, inFileName+"*")
 
-    check_call(["docker", "run", "--net=host",
-                "quay.io/ucsc_cgl/adam:cd6ef41", 
-                "--master", "spark://"+masterIP+":"+SPARK_MASTER_PORT, 
-                "--conf", "spark.driver.memory=%s" % inputs["driverMemory"],
-                "--conf", "spark.executor.memory=%s" % inputs["executorMemory"],
-                "--conf", "spark.hadoop.fs.default.name=hdfs://%s:%s" % (masterIP, HDFS_MASTER_PORT),
-                "--", "transform", 
-                "hdfs://%s:%s/mkdups.adam" % (masterIP, HDFS_MASTER_PORT),
-                "hdfs://%s:%s/ri.adam" % (masterIP, HDFS_MASTER_PORT),
-                "-realign_indels"])
+    call_adam(masterIP,
+              inputs,
+              ["transform", 
+               "hdfs://%s:%s/mkdups.adam" % (masterIP, HDFS_MASTER_PORT),
+               "hdfs://%s:%s/ri.adam" % (masterIP, HDFS_MASTER_PORT),
+               "-realign_indels"])
 
     remove_file(masterIP, "mkdups.adam*")
 
-    check_call(["docker", "run", "--net=host",
-                "quay.io/ucsc_cgl/adam:cd6ef41", 
-                "--master", "spark://"+masterIP+":"+SPARK_MASTER_PORT, 
-                "--conf", "spark.driver.memory=%s" % inputs["driverMemory"],
-                "--conf", "spark.executor.memory=%s" % inputs["executorMemory"],
-                "--conf", "spark.hadoop.fs.default.name=hdfs://%s:%s" % (masterIP, HDFS_MASTER_PORT),
-                "--", "transform", 
-                "hdfs://%s:%s/ri.adam" % (masterIP, HDFS_MASTER_PORT),
-                "hdfs://%s:%s/bqsr.adam" % (masterIP, HDFS_MASTER_PORT),
-                "-recalibrate_base_qualities", 
-                "-known_snps", snpFile])
-    
+    call_adam(masterIP,
+              inputs,
+              ["transform", 
+               "hdfs://%s:%s/ri.adam" % (masterIP, HDFS_MASTER_PORT),
+               "hdfs://%s:%s/bqsr.adam" % (masterIP, HDFS_MASTER_PORT),
+               "-recalibrate_base_qualities", 
+               "-known_snps", snpFile])
+              
     remove_file(masterIP, "ri.adam*")
 
-    check_call(["docker", "run", "--net=host",
-                "quay.io/ucsc_cgl/adam:cd6ef41", 
-                "--master", "spark://"+masterIP+":"+SPARK_MASTER_PORT, 
-                "--conf", "spark.driver.memory=%s" % inputs["driverMemory"],
-                "--conf", "spark.executor.memory=%s" % inputs["executorMemory"],
-                "--conf", "spark.hadoop.fs.default.name=hdfs://%s:%s" % (masterIP, HDFS_MASTER_PORT),
-                "--", "transform", 
-                "hdfs://%s:%s/bqsr.adam" % (masterIP, HDFS_MASTER_PORT), 
-                outFile,
-                "-sort_reads", "-single"])
+    call_adam(masterIP,
+              inputs,
+              ["transform", 
+               "hdfs://%s:%s/bqsr.adam" % (masterIP, HDFS_MASTER_PORT), 
+               outFile,
+               "-sort_reads", "-single"])
 
     remove_file(masterIP, "bqsr.adam*")
 
@@ -236,6 +226,11 @@ def upload_data(job, masterIP, hdfsName, inputs):
 
 class MasterService(Job.Service):
 
+    def __init__(self, sudo):
+
+        self.sudo = sudo
+
+
     def start(self):
         """
         Start spark and hdfs master containers
@@ -249,20 +244,22 @@ class MasterService(Job.Service):
         else:
             self.IP = check_output(["hostname", "-f",])[:-1]
 
-        self.sparkContainerID = check_output(["docker",
-                                              "run",
-                                              "--net=host",
-                                              "-d",
-                                              "-v", "/mnt/ephemeral/:/ephemeral/:rw",
-                                              "-e", "SPARK_MASTER_IP="+self.IP,
-                                              "-e", "SPARK_LOCAL_DIRS=/ephemeral/spark/local",
-                                              "-e", "SPARK_WORKER_DIR=/ephemeral/spark/work",
-                                              "quay.io/ucsc_cgl/apache-spark-master:1.5.2"])[:-1]
-        self.hdfsContainerID = check_output(["docker",
-                                             "run",
-                                             "--net=host",
-                                             "-d",
-                                             "quay.io/ucsc_cgl/apache-hadoop-master:2.6.2", self.IP])[:-1]
+        self.sparkContainerID = docker_call(tool = "quay.io/ucsc_cgl/apache-spark-master:1.5.2",
+                                            docker_parameters = ["--net=host",
+                                                                 "-d",
+                                                                 "-v", "/mnt/ephemeral/:/ephemeral/:rw",
+                                                                 "-e", "SPARK_MASTER_IP="+self.IP,
+                                                                 "-e", "SPARK_LOCAL_DIRS=/ephemeral/spark/local",
+                                                                 "-e", "SPARK_WORKER_DIR=/ephemeral/spark/work"],
+                                            [],
+                                            sudo = self.sudo,
+                                            check_output = True)[:-1]
+        self.hdfsContainerID = docker_call(tool = "quay.io/ucsc_cgl/apache-hadoop-master:2.6.2",
+                                           docker_parameters = ["--net=host",
+                                                                "-d"],
+                                           [self.IP],
+                                           sudo = self.sudo,
+                                           check_output = True)[:-1]
         return self.IP
 
     def stop(self):
@@ -271,20 +268,26 @@ class MasterService(Job.Service):
         """
         log.write("stop masters\n")
         log.flush()
-        call(["docker", "exec", self.sparkContainerID, "rm", "-r", "/ephemeral/spark"])
-        call(["docker", "stop", self.sparkContainerID])
-        call(["docker", "rm", self.sparkContainerID])
-        call(["docker", "stop", self.hdfsContainerID])
-        call(["docker", "rm", self.hdfsContainerID])
+        
+        sudo = []
+        if self.sudo:
+            sudo = ["sudo"]
+
+        call(sudo + ["docker", "exec", self.sparkContainerID, "rm", "-r", "/ephemeral/spark"])
+        call(sudo + ["docker", "stop", self.sparkContainerID])
+        call(sudo + ["docker", "rm", self.sparkContainerID])
+        call(sudo + ["docker", "stop", self.hdfsContainerID])
+        call(sudo + ["docker", "rm", self.hdfsContainerID])
 
         return
 
                 
 class WorkerService(Job.Service):
     
-    def __init__(self, masterIP):
+    def __init__(self, masterIP, sudo):
         Job.Service.__init__(self)
         self.masterIP = masterIP
+        self.sudo = sudo
 
     def start(self):
         """
@@ -293,22 +296,24 @@ class WorkerService(Job.Service):
         log.write("start workers\n")
         log.flush()
 
-        self.sparkContainerID = check_output(["docker",
-                                              "run",
-                                              "--net=host", 
-                                              "-d",
-                                              "-v", "/mnt/ephemeral/:/ephemeral/:rw",
-                                              "-e", "\"SPARK_MASTER_IP="+self.masterIP+":"+SPARK_MASTER_PORT+"\"",
-                                              "-e", "SPARK_LOCAL_DIRS=/ephemeral/spark/local",
-                                              "-e", "SPARK_WORKER_DIR=/ephemeral/spark/work",
-                                              "quay.io/ucsc_cgl/apache-spark-worker:1.5.2", 
-                                              self.masterIP+":"+SPARK_MASTER_PORT])[:-1]
-        self.hdfsContainerID = check_output(["docker",
-                                             "run",
-                                             "--net=host",
-                                             "-d",
-                                             "-v", "/mnt/ephemeral/:/ephemeral/:rw",
-                                             "quay.io/ucsc_cgl/apache-hadoop-worker:2.6.2", self.masterIP])[:-1]
+        self.sparkContainerID = docker_call(tool = "quay.io/ucsc_cgl/apache-spark-worker:1.5.2",
+                                            docker_parameters = ["--net=host", 
+                                                                 "-d",
+                                                                 "-v", "/mnt/ephemeral/:/ephemeral/:rw",
+                                                                 "-e", "\"SPARK_MASTER_IP="+self.masterIP+":"+SPARK_MASTER_PORT+"\"",
+                                                                 "-e", "SPARK_LOCAL_DIRS=/ephemeral/spark/local",
+                                                                 "-e", "SPARK_WORKER_DIR=/ephemeral/spark/work"],
+                                            [self.masterIP+":"+SPARK_MASTER_PORT],
+                                            sudo = inputs['sudo'],
+                                            check_output = True)[:-1]
+        self.hdfsContainerID = docker_call(tool = "quay.io/ucsc_cgl/apache-hadoop-worker:2.6.2",
+                                           docker_parameters = ["--net=host",
+                                                                "-d",
+                                                                "-v", "/mnt/ephemeral/:/ephemeral/:rw"],
+                                           [self.masterIP],
+                                           sudo = inputs['sudo'],
+                                           check_output = True)[:-1]
+                                           
         return
 
     def stop(self):
@@ -318,12 +323,16 @@ class WorkerService(Job.Service):
         log.write("stop workers\n")
         log.flush()
 
-        call(["docker", "exec", self.sparkContainerID, "rm", "-r", "/ephemeral/spark"])
-        call(["docker", "stop", self.sparkContainerID])
-        call(["docker", "rm", self.sparkContainerID])
-        call(["docker", "exec", self.hdfsContainerID, "rm", "-r", "/ephemeral/hdfs"])
-        call(["docker", "stop", self.hdfsContainerID])
-        call(["docker", "rm", self.hdfsContainerID])
+        sudo = []
+        if self.sudo:
+            sudo = ['sudo']
+
+        call(sudo + ["docker", "exec", self.sparkContainerID, "rm", "-r", "/ephemeral/spark"])
+        call(sudo + ["docker", "stop", self.sparkContainerID])
+        call(sudo + ["docker", "rm", self.sparkContainerID])
+        call(sudo + ["docker", "exec", self.hdfsContainerID, "rm", "-r", "/ephemeral/hdfs"])
+        call(sudo + ["docker", "stop", self.hdfsContainerID])
+        call(sudo + ["docker", "rm", self.hdfsContainerID])
 
         return
 
@@ -348,6 +357,12 @@ def build_parser():
                         help = 'Amount of memory to allocate for Spark Driver.')
     parser.add_argument('-q', '--executor_memory', required = True,
                         help = 'Amount of memory to allocate per Spark Executor.')
+    parser.add_argument('-u', '--sudo',
+                        dest='sudo', action='store_true',
+                        help='Docker usually needs sudo to execute '
+                        'locally, but not''when running Mesos '
+                        'or when a member of a Docker group.')
+
     return parser
 
 
@@ -364,7 +379,8 @@ def main(args):
               'accessKey':  options.aws_access_key,
               'secretKey':  options.aws_secret_key,
               'driverMemory': options.driver_memory,
-              'executorMemory': options.executor_memory}
+              'executorMemory': options.executor_memory,
+              'sudo': options.sudo}
 
     Job.Runner.startToil(Job.wrapJobFn(start_master, inputs), options)
 

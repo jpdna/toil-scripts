@@ -168,7 +168,14 @@ def return_input_paths(job, work_dir, ids, *args):
     return paths.values()
 
 
-def docker_call(work_dir, tool_parameters, tool, java_opts=None, outfile=None, sudo=False):
+def docker_call(work_dir,
+                tool_parameters,
+                tool,
+                java_opts=None,
+                outfile=None,
+                sudo=False,
+                docker_parameters=None,
+                check_output=False):
     """
     Makes subprocess call of a command to a docker container.
 
@@ -186,11 +193,18 @@ def docker_call(work_dir, tool_parameters, tool, java_opts=None, outfile=None, s
         base_docker_call = ['sudo'] + base_docker_call
     if java_opts:
         base_docker_call = base_docker_call + ['-e', 'JAVA_OPTS={}'.format(java_opts)]
+    if docker_parameters:
+        base_docker_call = base_docker_call + docker_parameters
+
     try:
         if outfile:
             subprocess.check_call(base_docker_call + [tool] + tool_parameters, stdout=outfile)
         else:
-            subprocess.check_call(base_docker_call + [tool] + tool_parameters)
+            if check_output:
+                return subprocess.check_output(base_docker_call + [tool] + tool_parameters)
+            else:
+                subprocess.check_call(base_docker_call + [tool] + tool_parameters)
+
     except subprocess.CalledProcessError:
         raise RuntimeError('docker command returned a non-zero exit status. Check error logs.')
     except OSError:

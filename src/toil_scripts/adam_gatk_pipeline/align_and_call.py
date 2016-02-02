@@ -221,6 +221,7 @@ if __name__ == '__main__':
                    'secretKey':  args.aws_secret_key,
                    'driverMemory': args.driver_memory,
                    'executorMemory': args.executor_memory,
+                   'sudo': args.sudo,
                    'bamName': 's3://%s/alignment/%s.bam' % (args.s3_bucket, args.uuid)}
 
     gatk_inputs = {'ref.fa': args.ref,
