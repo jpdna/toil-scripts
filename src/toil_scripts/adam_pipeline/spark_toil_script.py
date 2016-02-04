@@ -1,4 +1,3 @@
-
 #!/usr/bin/env python2.7
 """
 UCSC Computational Genomics Lab RNA-seq Pipeline
@@ -72,20 +71,18 @@ def call_conductor(masterIP, inputs, src, dst):
                 docker_parameters = ["--net=host",
                                      "-e", "AWS_ACCESS_KEY="+inputs['accessKey'],
                                      "-e", "AWS_SECRET_KEY="+inputs['secretKey']],
-                ["--master", "spark://"+masterIP+":"+SPARK_MASTER_PORT,
+                tool_parameters = ["--master", "spark://"+masterIP+":"+SPARK_MASTER_PORT,
                  "--conf", "spark.driver.memory=%s" % inputs["driverMemory"],
                  "--conf", "spark.executor.memory=%s" % inputs["executorMemory"],
                  "--", "-C", src, dst],
                 sudo = inputs['sudo'])
-
-)
 
 
 def call_adam(inputs, masterIP, arguments):
 
     docker_call(tool = "quay.io/ucsc_cgl/adam:cd6ef41", 
                 docker_parameter = ["--net=host"],
-                ["--master", "spark://"+masterIP+":"+SPARK_MASTER_PORT, 
+                tool_parameters = ["--master", "spark://"+masterIP+":"+SPARK_MASTER_PORT, 
                  "--conf", "spark.driver.memory=%s" % inputs["driverMemory"],
                  "--conf", "spark.executor.memory=%s" % inputs["executorMemory"],
                  "--conf", "spark.hadoop.fs.default.name=hdfs://%s:%s" % (masterIP, HDFS_MASTER_PORT),
@@ -251,13 +248,13 @@ class MasterService(Job.Service):
                                                                  "-e", "SPARK_MASTER_IP="+self.IP,
                                                                  "-e", "SPARK_LOCAL_DIRS=/ephemeral/spark/local",
                                                                  "-e", "SPARK_WORKER_DIR=/ephemeral/spark/work"],
-                                            [],
+                                            tool_parameters = [],
                                             sudo = self.sudo,
                                             check_output = True)[:-1]
         self.hdfsContainerID = docker_call(tool = "quay.io/ucsc_cgl/apache-hadoop-master:2.6.2",
                                            docker_parameters = ["--net=host",
                                                                 "-d"],
-                                           [self.IP],
+                                           tool_parameters = [self.IP],
                                            sudo = self.sudo,
                                            check_output = True)[:-1]
         return self.IP
@@ -303,14 +300,14 @@ class WorkerService(Job.Service):
                                                                  "-e", "\"SPARK_MASTER_IP="+self.masterIP+":"+SPARK_MASTER_PORT+"\"",
                                                                  "-e", "SPARK_LOCAL_DIRS=/ephemeral/spark/local",
                                                                  "-e", "SPARK_WORKER_DIR=/ephemeral/spark/work"],
-                                            [self.masterIP+":"+SPARK_MASTER_PORT],
+                                            tool_parameters = [self.masterIP+":"+SPARK_MASTER_PORT],
                                             sudo = inputs['sudo'],
                                             check_output = True)[:-1]
         self.hdfsContainerID = docker_call(tool = "quay.io/ucsc_cgl/apache-hadoop-worker:2.6.2",
                                            docker_parameters = ["--net=host",
                                                                 "-d",
                                                                 "-v", "/mnt/ephemeral/:/ephemeral/:rw"],
-                                           [self.masterIP],
+                                           tool_parameters = [self.masterIP],
                                            sudo = inputs['sudo'],
                                            check_output = True)[:-1]
                                            
