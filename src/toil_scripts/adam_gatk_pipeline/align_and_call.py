@@ -75,9 +75,9 @@ import os
 from toil.job import Job
 
 # import job steps from other toil pipelines
-import toil_scripts.adam_pipeline.spark_toil_script
-import toil_scripts.batch_alignment.bwa_alignment
-import toil_scripts.gatk_germline.germline
+from toil_scripts.adam_pipeline.spark_toil_script import *
+from toil_scripts.batch_alignment.bwa_alignment import *
+from toil_scripts.gatk_germline.germline import *
 
 def build_parser():
 
@@ -161,29 +161,31 @@ def static_dag(job, s3_bucket, uuid, bwa_inputs, adam_inputs, gatk_inputs):
         os.mkdirs(work_dir)
 
     # write config for bwa
-    bwafp = open("%s_bwa_config.csv" % uuid, "w")
-    bwa_inputs['config'] = "%s_bwa_config.csv" % uuid
+    bwa_config_path = os.path.join(work_dir, "%s_bwa_config.csv" % uuid)
+    bwafp = open(bwa_config_path, "w")
     print >> bwafp, "%s,https://s3.amazonaws.com/%s/sequence/%s_1.fastq.gz,https://s3.amazonaws.com/%s/sequence/%s_2.fastq.gz" % (uuid, s3_bucket, uuid, s3_bucket, uuid)
     bwafp.flush()
     bwafp.close()
+    bwa_inputs['config'] = job.fileStore.writeGlobalFile(bwa_config_path)
 
     # write config for gatk
-    gatkfp = open("%s_gatk_config.csv" % uuid, "w")
-    gatk_inputs['config'] = "%s_gatk_config.csv" % uuid
+    gatk_config_path = os.path.join(work_dir, "%s_gatk_config.csv" % uuid)
+    gatkfp = open(gatk_config_path, "w")
     print >> gatkfp, "%s,https://s3.amazonaws.com/%s/analysis/%s.bam" % (uuid, s3_bucket, uuid)
     gatkfp.flush()
     gatkfp.close()
+    gatk_inputs['config'] = job.fileStore.writeGlobalFile(gatk_config_path)
     
     # get head bwa job function and encapsulate it
-    bwa = job.wrapJobFn(toil_scripts.batch_alignment.bwa_alignment.download_shared_files,
+    bwa = job.wrapJobFn(download_shared_files,
                         bwa_inputs).encapsulate()
 
     # get head ADAM job function and encapsulate it
-    adam = job.wrapJobFn(toil_scripts.adam_pipeline.spark_toil_script.start_master,
+    adam = job.wrapJobFn(start_master,
                          adam_inputs).encapsulate()
     
     # get head GATK job function and encapsulate it
-    gatk = job.wrapJobFn(toil_scripts.gatk_germline.germline.batch_start,
+    gatk = job.wrapJobFn(batch_start,
                          gatk_inputs).encapsulate()
 
     # wire up dag

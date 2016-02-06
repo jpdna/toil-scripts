@@ -8,17 +8,15 @@ set -x -v
 # followed by preprocessing using ADAM, and variant calling using the HaplotypeCaller.
 #
 # Precautionary step: Create location where jobStore and tmp files will exist and set TOIL_HOME.
-TOIL_HOME=FIXME
-mkdir -p ${TOIL_HOME}/toil_mnt
 
 # Execution of pipeline
 python -m toil_scripts.adam_gatk_pipeline.align_and_call \
-    ${TOIL_HOME}/toil_mnt/jobStore \
+    aws:us-west-2:fnothaft-toil-jobstore \
     --retryCount 3 \
-    --uuid FIXME \
-    --s3_bucket FIXME \
-    --aws_access_key FIXME \
-    --aws_secret_key FIXME \
+    --uuid SRR062640 \
+    --s3_bucket fnothaft-test \
+    --aws_access_key ${BD2K_AWS_ACCESS_KEY_ID} \
+    --aws_secret_key ${BD2K_AWS_SECRET_ACCESS_KEY} \
     --ref https://s3-us-west-2.amazonaws.com/cgl-pipeline-inputs/variant_grch38/GRCh38_full_analysis_set_plus_decoy_hla.fa \
     --amb https://s3-us-west-2.amazonaws.com/cgl-pipeline-inputs/variant_grch38/GRCh38_full_analysis_set_plus_decoy_hla.fa.amb \
     --ann https://s3-us-west-2.amazonaws.com/cgl-pipeline-inputs/variant_grch38/GRCh38_full_analysis_set_plus_decoy_hla.fa.ann \
@@ -37,6 +35,5 @@ python -m toil_scripts.adam_gatk_pipeline.align_and_call \
     --dbsnp s3://cgl-pipeline-inputs/variant_grch38/ALL_20141222.dbSNP142_human_GRCh38.snps.vcf.gz \
     --omni s3://cgl-pipeline-inputs/variant_grch38/ALL.wgs.1000G_phase3.GRCh38.ncbi_remapper.20150424.shapeit2_indels.vcf.gz \
     --hapmap s3://cgl-pipeline-inputs/variant_grch38/ALL_20141222.dbSNP142_human_GRCh38.snps.vcf.gz \
-    --sudo \
-    --clean onSuccess \
-    --realTimeLogging
+    --batchSystem=mesos \
+    --mesosMaster $(hostname -i):5050

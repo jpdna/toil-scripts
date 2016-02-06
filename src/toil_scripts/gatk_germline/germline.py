@@ -102,7 +102,7 @@ def docker_call(work_dir, tool_parameters, tool, input_files=None, output_files=
             assert os.path.exists(output_file)
 
 
-def download_from_url(job, url, filename):
+def download_url(job, url, filename):
     """
     Downloads a file from a URL and places it in the jobStore
 
@@ -209,7 +209,7 @@ def batch_start(job, input_args):
     shared_ids = {}
     for file_name in shared_files:
         url = input_args[file_name]
-        shared_ids[file_name] = job.addChildJobFn(download_from_url, url, file_name).rv()
+        shared_ids[file_name] = job.addChildJobFn(download_url, url, file_name).rv()
     job.addFollowOnJobFn(create_reference_index, shared_ids, input_args)
 
 
@@ -268,6 +268,14 @@ def spawn_batch_jobs(job, shared_ids, input_args):
     # Names for every input file used in the pipeline by each sample
     samples = []
     config = input_args['config']
+
+    # does the config file exist locally? if not, try to read from job store
+    if not os.path.exists(config):
+
+        config_path = os.path.join(work_dir, 'config.txt')
+        job.fileStore.readGlobalFile(config, config_path)
+        config = config_path
+
     with open(config, 'r') as f:
         for line in f.readlines():
             if not line.isspace():
@@ -297,7 +305,7 @@ def start(job, shared_ids, input_args, sample):
         input_args['output_dir'] = os.path.join(input_args['output_dir'], uuid)
 
     if input_args['ssec'] is None:
-        ids['toil.bam'] = job.addChildJobFn(download_from_url, url, 'toil.bam').rv()
+        ids['toil.bam'] = job.addChildJobFn(download_url, url, 'toil.bam').rv()
     else:
         pass
     job.addFollowOnJobFn(index, ids, input_args)

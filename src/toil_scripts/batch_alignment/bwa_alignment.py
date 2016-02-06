@@ -273,6 +273,14 @@ def parse_config(job, shared_ids, input_args):
     """
     samples = []
     config = input_args['config']
+
+    # does the config file exist locally? if not, try to read from job store
+    if not os.path.exists(config):
+
+        config_path = os.path.join(work_dir, 'config.txt')
+        job.fileStore.readGlobalFile(config, config_path)
+        config = config_path
+
     with open(config, 'r') as f_in:
         for line in f_in:
             line = line.strip().split(',')
