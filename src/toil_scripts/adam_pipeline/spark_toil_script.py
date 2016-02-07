@@ -1,4 +1,3 @@
-
 #!/usr/bin/env python2.7
 """
 UCSC Computational Genomics Lab RNA-seq Pipeline
@@ -30,15 +29,19 @@ docker          - apt-get install docker (or 'docker.io' for linux)
 toil            - pip install --pre toil
 """
 
+# system imports
 import argparse
+import logging
 import os
 from subprocess import call, check_call, check_output
 import sys
+
+# toil imports
 from toil.job import Job
 
 SPARK_MASTER_PORT = "7077"
 HDFS_MASTER_PORT = "8020"
-log = open("python.log", 'a')
+log = logging.getLogger( __name__ )
 
 # JOB FUNCTIONS
 
@@ -46,9 +49,9 @@ def start_master(job, inputs):
     """
     Starts the master service.
     """
-    log.write("master job\n")
-    log.flush()
+    log.info("Starting Spark master...")
     masterIP = job.addService(MasterService())
+    log.info("Started Spark master at %s." % masterIP)
     job.addChildJobFn(start_workers, masterIP, inputs)
 
 
@@ -56,8 +59,9 @@ def start_workers(job, masterIP, inputs):
     """
     Starts the worker services.
     """
-    log.write("workers job\n")
-    log.flush()
+    log.info("Starting %d Spark/HDFS worker%s." % (inputs['numWorkers'],
+                                                   's' if inputs['numWorkers'] > 1 else ''))
+
     for i in range(inputs['numWorkers']):
         job.addService(WorkerService(masterIP))
     job.addFollowOnJobFn(download_data, masterIP, inputs)
@@ -93,20 +97,25 @@ def download_data(job, masterIP, inputs):
     """
     Downloads input data files from s3.
     """
-    log.write("download data\n")
-    log.flush()
+    log.info('Downloading input files from S3...')
     
     snpFileSystem, snpPath = inputs['knownSNPs'].split('://')
     snpName = snpPath.split('/')[-1]
     hdfsSNPs = "hdfs://"+masterIP+":"+HDFS_MASTER_PORT+"/"+snpName
     
     call_conductor(masterIP, inputs, inputs['knownSNPs'], hdfsSNPs)
-        
+    
+    log.info('Wrote known SNPs file from %s to %s in HDFS.' % (inputs['knownSNPs'],
+                                                               hdfsSNPs))
+    
     bamFileSystem, bamPath = inputs['bamName'].split('://')
     bamName = bamPath.split('/')[-1]
     hdfsBAM = "hdfs://"+masterIP+":"+HDFS_MASTER_PORT+"/"+bamName
 
     call_conductor(masterIP, inputs, inputs['bamName'], hdfsBAM)
+
+    log.info('Wrote input BAM file from %s to %s in HDFS.' % (inputs['bamName'],
+                                                              hdfsBAM))
      
     job.addFollowOnJobFn(adam_convert, masterIP, hdfsBAM, hdfsSNPs, inputs)
 
@@ -115,8 +124,6 @@ def adam_convert(job, masterIP, inFile, snpFile, inputs):
     """
     Convert input sam/bam file and known SNPs file into ADAM format
     """
-    log.write("adam convert\n")
-    log.flush()
 
     adamFile = ".".join(os.path.splitext(inFile)[:-1])+".adam"
     
@@ -157,8 +164,6 @@ def adam_transform(job, masterIP, inFile, snpFile, inputs):
         - realign indels
         - recalibrate base quality scores
     """
-    log.write("adam transform\n")
-    log.flush()
 
     outFile = ".".join(os.path.splitext(inFile)[:-1])+".processed.bam"
 
@@ -224,13 +229,14 @@ def upload_data(job, masterIP, hdfsName, inputs):
     """
     Upload file hdfsName from hdfs to s3
     """
-    log.write("write data\n")
-    log.flush()
 
     fileSystem, path = hdfsName.split('://')
     nameOnly = path.split('/')[-1]
 
-    call_conductor(masterIP, inputs, hdfsName, inputs['outDir']+"/"+nameOnly)
+    log.info('Completed preprocessing. Writing final BAM back to S3 at %s/%s.' % (inputs['outDir'],
+                                                                                  nameOnly))
+
+    call_conductor(masterIP, inputs, hdfsName, inputs['outDir'] + "/" + nameOnly)
     
 # SERVICE CLASSES
 
@@ -240,12 +246,14 @@ class MasterService(Job.Service):
         """
         Start spark and hdfs master containers
         """
-        log.write("start masters\n")
-        log.flush()
         
         if (os.uname()[0] == "Darwin"):
+
             machine = check_output(["docker-machine", "ls"]).split("\n")[1].split()[0]
             self.IP = check_output(["docker-machine", "ip", machine]).strip().rstrip()
+
+            log.warn('Detected Mac OS X. Using docker-machine %s at IP %s.' % (machine, self.IP))
+
         else:
             self.IP = check_output(["hostname", "-f",])[:-1]
 
@@ -263,21 +271,26 @@ class MasterService(Job.Service):
                                              "--net=host",
                                              "-d",
                                              "quay.io/ucsc_cgl/apache-hadoop-master:2.6.2", self.IP])[:-1]
+
+        log.info('Started Spark master and HDFS namenode.')
+
         return self.IP
+
 
     def stop(self):
         """
         Stop and remove spark and hdfs master containers
         """
-        log.write("stop masters\n")
-        log.flush()
+
+        log.info('Stopping Spark and HDFS master.')
+
         call(["docker", "exec", self.sparkContainerID, "rm", "-r", "/ephemeral/spark"])
         call(["docker", "stop", self.sparkContainerID])
         call(["docker", "rm", self.sparkContainerID])
         call(["docker", "stop", self.hdfsContainerID])
         call(["docker", "rm", self.hdfsContainerID])
 
-        return
+        log.info('Stopped Spark and HDFS master.')
 
                 
 class WorkerService(Job.Service):
@@ -290,8 +303,8 @@ class WorkerService(Job.Service):
         """
         Start spark and hdfs worker containers
         """
-        log.write("start workers\n")
-        log.flush()
+
+        log.info('Starting Spark worker and HDFS datanode.')
 
         self.sparkContainerID = check_output(["docker",
                                               "run",
@@ -309,14 +322,16 @@ class WorkerService(Job.Service):
                                              "-d",
                                              "-v", "/mnt/ephemeral/:/ephemeral/:rw",
                                              "quay.io/ucsc_cgl/apache-hadoop-worker:2.6.2", self.masterIP])[:-1]
-        return
+
+        log.info('Spark worker and HDFS datanode containers have been started.')
+
 
     def stop(self):
         """
         Stop spark and hdfs worker containers
         """
-        log.write("stop workers\n")
-        log.flush()
+
+        log.info('Stopping worker.')
 
         call(["docker", "exec", self.sparkContainerID, "rm", "-r", "/ephemeral/spark"])
         call(["docker", "stop", self.sparkContainerID])
@@ -325,7 +340,7 @@ class WorkerService(Job.Service):
         call(["docker", "stop", self.hdfsContainerID])
         call(["docker", "rm", self.hdfsContainerID])
 
-        return
+        log.info('Worker is stopped.')
 
 
 def build_parser():
