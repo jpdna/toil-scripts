@@ -48,7 +48,7 @@ def start_master(job, inputs):
     """
     log.write("master job\n")
     log.flush()
-    masterIP = job.addService(MasterService())
+    masterIP = job.addService(MasterService(inputs['retainLogs']))
     job.addChildJobFn(start_workers, masterIP, inputs)
 
 
@@ -59,7 +59,7 @@ def start_workers(job, masterIP, inputs):
     log.write("workers job\n")
     log.flush()
     for i in range(inputs['numWorkers']):
-        job.addService(WorkerService(masterIP))
+        job.addService(WorkerService(masterIP, inputs['retainLogs']))
     job.addFollowOnJobFn(download_data, masterIP, inputs)
 
 
@@ -236,6 +236,10 @@ def upload_data(job, masterIP, hdfsName, inputs):
 
 class MasterService(Job.Service):
 
+    def __init__(self, retainLogs):
+        
+        self.retainLogs = retainLogs
+
     def start(self):
         """
         Start spark and hdfs master containers
@@ -271,6 +275,11 @@ class MasterService(Job.Service):
         """
         log.write("stop masters\n")
         log.flush()
+
+        if not self.retainLogs:
+
+            call(["docker", "exec", self.sparkContainerID, "rm", "-r", "/ephemeral/spark-logs"])
+
         call(["docker", "exec", self.sparkContainerID, "rm", "-r", "/ephemeral/spark"])
         call(["docker", "stop", self.sparkContainerID])
         call(["docker", "rm", self.sparkContainerID])
@@ -282,9 +291,10 @@ class MasterService(Job.Service):
                 
 class WorkerService(Job.Service):
     
-    def __init__(self, masterIP):
+    def __init__(self, masterIP, retainLogs):
         Job.Service.__init__(self)
         self.masterIP = masterIP
+        self.retainLogs = retainLogs
 
     def start(self):
         """
@@ -318,6 +328,10 @@ class WorkerService(Job.Service):
         log.write("stop workers\n")
         log.flush()
 
+        if not self.retainLogs:
+
+            call(["docker", "exec", self.sparkContainerID, "rm", "-r", "/ephemeral/spark-logs"])
+
         call(["docker", "exec", self.sparkContainerID, "rm", "-r", "/ephemeral/spark"])
         call(["docker", "stop", self.sparkContainerID])
         call(["docker", "rm", self.sparkContainerID])
@@ -348,6 +362,8 @@ def build_parser():
                         help = 'Amount of memory to allocate for Spark Driver.')
     parser.add_argument('-q', '--executor_memory', required = True,
                         help = 'Amount of memory to allocate per Spark Executor.')
+    parser.add_argument('-r', '--retain_spark_logs', action = 'store_true',
+                        help = 'If passed, Spark logs will not be deleted from the ephemeral volume after completion.')
     return parser
 
 
@@ -364,7 +380,8 @@ def main(args):
               'accessKey':  options.aws_access_key,
               'secretKey':  options.aws_secret_key,
               'driverMemory': options.driver_memory,
-              'executorMemory': options.executor_memory}
+              'executorMemory': options.executor_memory,
+              'retainLogs': options.retain_spark_logs}
 
     Job.Runner.startToil(Job.wrapJobFn(start_master, inputs), options)
 
