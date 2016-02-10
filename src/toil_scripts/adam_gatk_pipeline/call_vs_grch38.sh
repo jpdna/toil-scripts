@@ -37,4 +37,5 @@ python -m toil_scripts.adam_gatk_pipeline.align_and_call \
     --omni s3://cgl-pipeline-inputs/variant_grch38/ALL.wgs.1000G_phase3.GRCh38.ncbi_remapper.20150424.shapeit2_indels.vcf.gz \
     --hapmap s3://cgl-pipeline-inputs/variant_grch38/ALL_20141222.dbSNP142_human_GRCh38.snps.vcf.gz \
     --batchSystem=mesos \
-    --mesosMaster $(hostname -i):5050
+    --mesosMaster $(hostname -i):5050 \
+    --workDir /var/lib/toil 
