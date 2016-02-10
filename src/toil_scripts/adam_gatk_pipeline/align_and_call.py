@@ -95,6 +95,10 @@ def build_parser():
     parser.add_argument('-S', '--aws_secret_key', required = True,
                         help = 'Amazon web services secret key')
 
+    # add file size argument
+    parser.add_argument('-se', '--file_size', default = '100G',
+                        help = 'Approximate input file size. Should be given as %d[TGMK], e.g., for a 100 gigabyte file, use --file_size 100G')
+
     # add bwa args
     parser.add_argument('-r', '--ref', required = True,
                         help = 'Reference fasta file')
@@ -214,6 +218,7 @@ if __name__ == '__main__':
                   'lb': args.uuid,
                   'uuid': args.uuid,
                   'cpu_count': None,
+                  'file_size': args.file_size,
                   'use_bwakit': args.use_bwakit}
     
     adam_inputs = {'numWorkers': args.num_nodes - 1,

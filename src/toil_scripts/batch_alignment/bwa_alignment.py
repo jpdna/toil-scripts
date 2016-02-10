@@ -63,6 +63,7 @@ def build_parser():
     parser.add_argument('-3', '--s3_dir', default=None, help='S3 Directory, starting with bucket name. e.g.: '
                                                              'cgl-driver-projects/ckcc/rna-seq-samples/')
     parser.add_argument('-k', '--use_bwakit', action='store_true', help='Use bwakit instead of the binary build of bwa')
+    parser.add_argument('-se', '--file_size', default='100G', help='Approximate input file size. Should be given as %d[TGMK], e.g., for a 100 gigabyte file, use --file_size 100G')
     parser.set_defaults(sudo=False)
     return parser
 
@@ -307,9 +308,9 @@ def download_inputs(job, job_vars, sample):
     for i in xrange(2):
         if input_args['ssec']:
             key_path = input_args['ssec']
-            ids['r{}.fq.gz'.format(i+1)] = job.addChildJobFn(download_encrypted_file, urls[i], key_path, disk='100G').rv()
+            ids['r{}.fq.gz'.format(i+1)] = job.addChildJobFn(download_encrypted_file, urls[i], key_path, disk=input_args['file_size']).rv()
         else:
-            ids['r{}.fq.gz'.format(i+1)] = job.addChildJobFn(download_from_url, urls[i], disk='100G').rv()
+            ids['r{}.fq.gz'.format(i+1)] = job.addChildJobFn(download_from_url, urls[i], disk=input_args['file_size']).rv()
     job.addFollowOnJobFn(static_dag_declaration, job_vars)
 
 
@@ -326,9 +327,9 @@ def static_dag_declaration(job, job_vars):
     # if we run with bwakit, we skip conversion
     if input_args['use_bwakit']:
 
-        bwa = job.wrapJobFn(run_bwa, job_vars, cores=cores, disk='150G')
-        header = job.wrapJobFn(fix_bam_header, job_vars, bwa.rv(), disk='100G')
-        rg = job.wrapJobFn(add_readgroups, job_vars, header.rv(), memory='15G', disk='100G')
+        bwa = job.wrapJobFn(run_bwa, job_vars, cores=cores, disk=input_args['file_size'])
+        header = job.wrapJobFn(fix_bam_header, job_vars, bwa.rv(), disk=input_args['file_size'])
+        rg = job.wrapJobFn(add_readgroups, job_vars, header.rv(), memory='15G', disk=input_args['file_size'])
         
         # Link
         job.addChild(bwa)
@@ -337,10 +338,10 @@ def static_dag_declaration(job, job_vars):
     
     else:
 
-        bwa = job.wrapJobFn(run_bwa, job_vars, cores=cores, disk='150G')
-        conversion = job.wrapJobFn(bam_conversion, job_vars, bwa.rv(), disk='150G')
-        header = job.wrapJobFn(fix_bam_header, job_vars, conversion.rv(), disk='100G')
-        rg = job.wrapJobFn(add_readgroups, job_vars, header.rv(), memory='15G', disk='100G')
+        bwa = job.wrapJobFn(run_bwa, job_vars, cores=cores, disk=input_args['file_size'])
+        conversion = job.wrapJobFn(bam_conversion, job_vars, bwa.rv(), disk=input_args['file_size'])
+        header = job.wrapJobFn(fix_bam_header, job_vars, conversion.rv(), disk=input_args['file_size'])
+        rg = job.wrapJobFn(add_readgroups, job_vars, header.rv(), memory='15G', disk=input_args['file_size'])
         
         # Link
         job.addChild(bwa)
@@ -574,6 +575,7 @@ def main():
               'lb': args.lb,
               'uuid': None,
               'cpu_count': None,
+              'file_size': args.file_size,
               'use_bwakit': args.use_bwakit}
 
     # Launch Pipeline
