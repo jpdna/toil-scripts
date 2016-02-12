@@ -219,7 +219,9 @@ if __name__ == '__main__':
                   'uuid': args.uuid,
                   'cpu_count': None,
                   'file_size': args.file_size,
-                  'use_bwakit': args.use_bwakit}
+                  'use_bwakit': args.use_bwakit,
+                  'aws_access_key':  args.aws_access_key,
+                  'aws_secret_key':  args.aws_secret_key}
     
     adam_inputs = {'numWorkers': args.num_nodes - 1,
                    'outDir':     's3://%s/analysis/%s.bam' % (args.s3_bucket, args.uuid),
@@ -242,7 +244,9 @@ if __name__ == '__main__':
                    'cpu_count': str(multiprocessing.cpu_count()),
                    'ssec': None,
                    's3_dir': "%s/%s/analysis" % (args.s3_bucket, args.uuid),
-                   'file_size': args.file_size}
+                   'file_size': args.file_size,
+                   'aws_access_key':  args.aws_access_key,
+                   'aws_secret_key':  args.aws_secret_key}
 
     Job.Runner.startToil(Job.wrapJobFn(static_dag,
                                        args.s3_bucket,

@@ -516,6 +516,11 @@ def upload_to_s3(job, input_args, output_file):
     base_url = 'https://s3.amazonaws.com/'
     url = os.path.join(base_url, bucket_name, bucket_dir, output_file)
     
+    if input_args['aws_access_key']:
+        os.environ['AWS_ACCESS_KEY_ID'] = input_args['aws_access_key']
+    if input_args['aws_secret_key']:
+        os.environ['AWS_SECRET_ACCESS_KEY'] = input_args['aws_secret_key']
+
     # does this need to be uploaded with encryption?
     if input_args['ssec']:
        key_path = input_args['ssec']
@@ -576,7 +581,9 @@ def main():
               'uuid': None,
               'cpu_count': None,
               'file_size': args.file_size,
-              'use_bwakit': args.use_bwakit}
+              'use_bwakit': args.use_bwakit,
+              'aws_access_key': None,
+              'aws_secret_key': None}
 
     # Launch Pipeline
     Job.Runner.startToil(Job.wrapJobFn(download_shared_files, inputs), args)
