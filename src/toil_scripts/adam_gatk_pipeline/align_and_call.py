@@ -241,7 +241,8 @@ if __name__ == '__main__':
                    'uuid': None,
                    'cpu_count': str(multiprocessing.cpu_count()),
                    'ssec': None,
-                  's3_dir': "%s/%s/analysis" % (args.s3_bucket, args.uuid),}
+                   's3_dir': "%s/%s/analysis" % (args.s3_bucket, args.uuid),
+                   'file_size': args.file_size}
 
     Job.Runner.startToil(Job.wrapJobFn(static_dag,
                                        args.s3_bucket,

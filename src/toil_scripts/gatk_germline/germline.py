@@ -52,6 +52,7 @@ def build_parser():
     parser.add_argument('-n', '--omni', required=True, help='1000G_omni.5.b37.vcf URL')
     parser.add_argument('-t', '--hapmap', required=True, help='hapmap_3.3.b37.vcf URL')
     parser.add_argument('-o', '--output_dir', default="./data", help='Full path to final output dir')
+    parser.add_argument('-se', '--file_size', default='100G', help='Approximate input file size. Should be given as %d[TGMK], e.g., for a 100 gigabyte file, use --file_size 100G')
     return parser
 
 
@@ -435,7 +436,7 @@ def upload_or_move(job, input_args, output):
 
     elif input_args['s3_dir']:
         
-        job.addChildJobFn(upload_to_s3, job_vars, output, disk='80G')
+        job.addChildJobFn(upload_to_s3, job_vars, output, disk=input_args['file_size'])
 
     else:
 
@@ -516,6 +517,7 @@ if __name__ == '__main__':
               'output_dir': args.output_dir,
               'uuid': None,
               'cpu_count': str(multiprocessing.cpu_count()),
+              'file_size': args.file_size,
               'ssec': None}
     
     Job.Runner.startToil(Job.wrapJobFn(batch_start, inputs), args)

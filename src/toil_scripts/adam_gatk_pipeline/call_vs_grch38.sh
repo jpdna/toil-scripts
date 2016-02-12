@@ -14,10 +14,10 @@ python -m toil_scripts.adam_gatk_pipeline.align_and_call \
     aws:us-west-2:fnothaft-toil-jobstore \
     --retryCount 3 \
     --uuid SRR062640 \
-    --s3_bucket fnothaft-test \
+    --s3_bucket fnothaft-fc-test \
     --file_size 5G \
-    --aws_access_key ${BD2K_AWS_ACCESS_KEY_ID} \
-    --aws_secret_key ${BD2K_AWS_SECRET_ACCESS_KEY} \
+    --aws_access_key ${FC_AWS_ACCESS_KEY_ID} \
+    --aws_secret_key ${FC_AWS_SECRET_ACCESS_KEY} \
     --ref https://s3-us-west-2.amazonaws.com/cgl-pipeline-inputs/variant_grch38/GRCh38_full_analysis_set_plus_decoy_hla.fa \
     --amb https://s3-us-west-2.amazonaws.com/cgl-pipeline-inputs/variant_grch38/GRCh38_full_analysis_set_plus_decoy_hla.fa.amb \
     --ann https://s3-us-west-2.amazonaws.com/cgl-pipeline-inputs/variant_grch38/GRCh38_full_analysis_set_plus_decoy_hla.fa.ann \
@@ -38,4 +38,5 @@ python -m toil_scripts.adam_gatk_pipeline.align_and_call \
     --hapmap s3://cgl-pipeline-inputs/variant_grch38/ALL_20141222.dbSNP142_human_GRCh38.snps.vcf.gz \
     --batchSystem=mesos \
     --mesosMaster $(hostname -i):5050 \
-    --workDir /var/lib/toil 
+    --workDir /var/lib/toil \
+    --file_size 1G

@@ -292,7 +292,7 @@ def parse_config(job, shared_ids, input_args):
     input_args['cpu_count'] = multiprocessing.cpu_count()
     job_vars = (input_args, shared_ids)
     for sample in samples:
-        job.addChildJobFn(download_inputs, job_vars, sample, cores=input_args['cpu_count'], memory='20 G', disk='100 G')
+        job.addChildJobFn(download_inputs, job_vars, sample, cores=input_args['cpu_count'], memory='20 G', disk=input_args['file_size'])
 
 
 def download_inputs(job, job_vars, sample):
@@ -496,7 +496,7 @@ def add_readgroups(job, job_vars, bam_id):
     if input_args['output_dir']:
         copy_to_output_dir(work_dir=work_dir, output_dir=input_args['output_dir'], files=[output_file])
     if input_args['s3_dir']:
-        job.addChildJobFn(upload_to_s3, input_args, output_file, disk='80G')
+        job.addChildJobFn(upload_to_s3, input_args, output_file, disk=input_args['file_size'])
 
 
 def upload_to_s3(job, input_args, output_file):
