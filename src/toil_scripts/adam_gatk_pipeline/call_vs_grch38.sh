@@ -14,8 +14,7 @@ python -m toil_scripts.adam_gatk_pipeline.align_and_call \
     aws:us-west-2:fnothaft-toil-jobstore \
     --retryCount 3 \
     --uuid SRR062640 \
-    --s3_bucket fnothaft-fc-test \
-    --file_size 5G \
+    --s3_bucket fnothaft-fc-test-west-2 \
     --aws_access_key ${FC_AWS_ACCESS_KEY_ID} \
     --aws_secret_key ${FC_AWS_SECRET_ACCESS_KEY} \
     --ref https://s3-us-west-2.amazonaws.com/cgl-pipeline-inputs/variant_grch38/GRCh38_full_analysis_set_plus_decoy_hla.fa \
