@@ -12,7 +12,7 @@ set -x -v
 # Execution of pipeline
 python -m toil_scripts.adam_gatk_pipeline.align_and_call \
     aws:us-west-2:fnothaft-toil-jobstore \
-    --retryCount 3 \
+    --retryCount 1 \
     --uuid SRR062640 \
     --s3_bucket fnothaft-fc-test-west-2 \
     --aws_access_key ${FC_AWS_ACCESS_KEY_ID} \
@@ -38,4 +38,5 @@ python -m toil_scripts.adam_gatk_pipeline.align_and_call \
     --batchSystem=mesos \
     --mesosMaster $(hostname -i):5050 \
     --workDir /var/lib/toil \
-    --file_size 1G
+    --file_size 1G \
+    --logInfo

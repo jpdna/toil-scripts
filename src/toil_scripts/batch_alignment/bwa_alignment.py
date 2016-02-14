@@ -32,6 +32,7 @@ from collections import OrderedDict
 import hashlib
 import multiprocessing
 import os
+import sys
 import errno
 import subprocess
 import shutil
@@ -139,7 +140,10 @@ def download_from_url(job, url):
     file_path = os.path.join(work_dir, os.path.basename(url))
     if not os.path.exists(file_path):
         try:
-            subprocess.check_call(['curl', '-fs', '--retry', '5', '--create-dir', url, '-o', file_path])
+            download_cmd = ['curl', '-fs', '--retry', '5', '--create-dir', url, '-o', file_path]
+            log.info("Downloading file using command %s." % " ".join(download_cmd))
+            sys.stderr.write( "Downloading file using command %s.\n" % " ".join(download_cmd))
+            subprocess.check_call(download_cmd)
         except OSError:
             raise RuntimeError('Failed to find "curl". Install via "apt-get install curl"')
     assert os.path.exists(file_path)
@@ -188,14 +192,15 @@ def docker_call(work_dir,
     """
     base_docker_call = 'docker run --rm --log-driver=none -v {}:/data'.format(work_dir).split()
 
-    log.warn("Calling docker with %s." % " ".join(base_docker_call))
-
     if sudo:
         base_docker_call = ['sudo'] + base_docker_call
     if java_opts:
         base_docker_call = base_docker_call + ['-e', 'JAVA_OPTS={}'.format(java_opts)]
     if docker_parameters:
         base_docker_call = base_docker_call + docker_parameters
+
+    log.warn("Calling docker with %s." % " ".join(base_docker_call))
+    sys.stderr.write( "Calling docker with %s\n" % " ".join(base_docker_call))
 
     try:
         if outfile:
@@ -379,8 +384,16 @@ def run_bwa(job, job_vars):
                       '/data/r1.fq.gz',
                       '/data/r2.fq.gz']
 
-        docker_call(tool='quay.io/ucsc_cgl/bwakit:0.7.12',
-                    tool_parameters=parameters, work_dir=work_dir, sudo=sudo)
+        try:
+            docker_call(tool='quay.io/ucsc_cgl/bwakit:0.7.12',
+                        tool_parameters=parameters, work_dir=work_dir, sudo=sudo)
+        except:
+            last = work_dir.split('/')[-1]
+            log.warn("Copying files from %s to /mnt/ephemeral/frank/%s" % (work_dir, last))
+            sys.stderr.write("Copying files from %s to /mnt/ephemeral/frank/%s\n" % (work_dir, last))
+
+            shutil.copytree(work_dir, "/mnt/ephemeral/frank/%s" % last)
+            raise
 
         # bwa insists on adding an `*.aln.sam` suffix, so rename the output file
         os.rename(os.path.join(work_dir, 'aligned.aln.bam'),
