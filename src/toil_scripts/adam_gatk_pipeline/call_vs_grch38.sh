@@ -12,7 +12,6 @@ set -x -v
 # Execution of pipeline
 python -m toil_scripts.adam_gatk_pipeline.align_and_call \
     aws:us-west-2:fnothaft-toil-jobstore \
-    --restart \
     --retryCount 1 \
     --uuid SRR062640 \
     --s3_bucket fnothaft-fc-test-west-2 \
