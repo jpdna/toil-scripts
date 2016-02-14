@@ -492,6 +492,7 @@ def add_readgroups(job, job_vars, bam_id):
     output_file = '{}.bam'.format(uuid)
     # Retrieve input file
     job.fileStore.readGlobalFile(bam_id, os.path.join(work_dir, 'aligned_fixpg.bam'))
+    sys.stderr.write("Read global file to %s, adding read groups and saving to %s." % (os.path.join(work_dir, 'aligned_fixpg.bam'), os.path.join(work_dir, output_file)))
     # Call: Samtools
     parameters = ['AddOrReplaceReadGroups',
                   'I=/data/aligned_fixpg.bam',
@@ -509,18 +510,24 @@ def add_readgroups(job, job_vars, bam_id):
     if input_args['output_dir']:
         copy_to_output_dir(work_dir=work_dir, output_dir=input_args['output_dir'], files=[output_file])
     if input_args['s3_dir']:
-        job.addChildJobFn(upload_to_s3, input_args, output_file, disk=input_args['file_size'])
+        try:
+            upload_to_s3(work_dir, input_args, output_file)
+        except:
+            last = work_dir.split('/')[-1]
+            log.warn("Copying files from %s to /mnt/ephemeral/frank/%s" % (work_dir, last))
+            sys.stderr.write("Copying files from %s to /mnt/ephemeral/frank/%s\n" % (work_dir, last))
+        
+            shutil.copytree(work_dir, "/mnt/ephemeral/frank/%s" % last)
+            raise
 
 
-def upload_to_s3(job, input_args, output_file):
+def upload_to_s3(work_dir, input_args, output_file):
     """
     Uploads a file to S3 via S3AM with encryption.  This pipeline assumes all
     BAMS contain patient data and must be encrypted upon upload.
 
     job_vars: tuple         Contains the dictionaries: input_args and ids
     """
-
-    work_dir = job.fileStore.getLocalTempDir()
 
     # Parse s3_dir to get bucket and s3 path
     s3_dir = input_args['s3_dir']
@@ -533,6 +540,9 @@ def upload_to_s3(job, input_args, output_file):
         os.environ['AWS_ACCESS_KEY_ID'] = input_args['aws_access_key']
     if input_args['aws_secret_key']:
         os.environ['AWS_SECRET_ACCESS_KEY'] = input_args['aws_secret_key']
+
+    # what is the path we are uploading to?
+    s3_path = os.path.join('s3://', bucket_name, bucket_dir, output_file)
 
     # does this need to be uploaded with encryption?
     if input_args['ssec']:
@@ -547,19 +557,29 @@ def upload_to_s3(job, input_args, output_file):
                        'upload',
                        '--sse-key-file', os.path.join(work_dir, uuid + '.key'),
                        'file://{}'.format(os.path.join(work_dir, output_file)),
-                       os.path.join('s3://', bucket_name, bucket_dir, output_file)]
+                       s3_path]
 
     else:
         # Upload to S3 via S3AM
         s3am_command = ['s3am',
                         'upload',
                         'file://{}'.format(os.path.join(work_dir, output_file)),
-                        os.path.join('s3://', bucket_name, bucket_dir, output_file)]
+                        s3_path]
 
     # run upload
-    log.warn("Calling s3am with %s" % " ".join(s3am_command))
-    subprocess.check_call(s3am_command)
+    log.info("Calling s3am with %s" % " ".join(s3am_command))
+    try:
+        subprocess.check_call(s3am_command)
+    except:
+        log.error("Upload to %s failed. Cancelling..." % s3_path)
+        s3am_cancel = ['s3am', 'cancel', s3_path]
+        
+        try:
+            subprocess.check_call(s3am_cancel)
+        except:
+            log.error("Cancelling upload with '%s' failed." % " ".join(s3am_cancel))
 
+        raise
 
 def main():
     """

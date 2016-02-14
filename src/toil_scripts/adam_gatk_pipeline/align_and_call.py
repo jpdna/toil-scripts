@@ -90,6 +90,8 @@ def build_parser():
     # add bucket args
     parser.add_argument('-3', '--s3_bucket', required = True,
                         help = 'S3 Bucket URI')
+    parser.add_argument('-3r', '--bucket_region', default = "us-east-1",
+                        help = 'Region of the S3 bucket. Defaults to us-east-1.')
     parser.add_argument('-y', '--aws_access_key', required = True,
                         help = 'Amazon web services access key')
     parser.add_argument('-S', '--aws_secret_key', required = True,
@@ -125,8 +127,6 @@ def build_parser():
     # add ADAM args
     parser.add_argument('-N', '--num_nodes', type = int, required = True,
                         help = 'Number of nodes to use')
-    parser.add_argument('-K', '--known_SNPs', required = True,
-                        help = 'The full s3 url of a VCF file of known snps')
     parser.add_argument('-d', '--driver_memory', required = True,
                         help = 'Amount of memory to allocate for Spark Driver.')
     parser.add_argument('-q', '--executor_memory', required = True,
@@ -147,7 +147,7 @@ def build_parser():
     # return built parser
     return parser
 
-def static_dag(job, s3_bucket, uuid, bwa_inputs, adam_inputs, gatk_inputs):
+def static_dag(job, s3_bucket, bucket_region, uuid, bwa_inputs, adam_inputs, gatk_inputs):
     """
     Prefer this here as it allows us to pull the job functions from other jobs
     without rewrapping the job functions back together.
@@ -160,6 +160,12 @@ def static_dag(job, s3_bucket, uuid, bwa_inputs, adam_inputs, gatk_inputs):
     # get work directory
     work_dir = job.fileStore.getLocalTempDir()
 
+    # what region is our bucket in?
+    if bucket_region == "us-east-1":
+        bucket_region = ""
+    else:
+        bucket_region = "-%s" % bucket_region
+
     # does the work directory exist?
     if not os.path.exists(work_dir):
         os.mkdirs(work_dir)
@@ -167,7 +173,7 @@ def static_dag(job, s3_bucket, uuid, bwa_inputs, adam_inputs, gatk_inputs):
     # write config for bwa
     bwa_config_path = os.path.join(work_dir, "%s_bwa_config.csv" % uuid)
     bwafp = open(bwa_config_path, "w")
-    print >> bwafp, "%s,https://s3.amazonaws.com/%s/sequence/%s_1.fastq.gz,https://s3.amazonaws.com/%s/sequence/%s_2.fastq.gz" % (uuid, s3_bucket, uuid, s3_bucket, uuid)
+    print >> bwafp, "%s,https://s3%s.amazonaws.com/%s/sequence/%s_1.fastq.gz,https://s3%s.amazonaws.com/%s/sequence/%s_2.fastq.gz" % (uuid, bucket_region, s3_bucket, uuid, bucket_region, s3_bucket, uuid)
     bwafp.flush()
     bwafp.close()
     bwa_inputs['config'] = job.fileStore.writeGlobalFile(bwa_config_path)
@@ -175,7 +181,7 @@ def static_dag(job, s3_bucket, uuid, bwa_inputs, adam_inputs, gatk_inputs):
     # write config for gatk
     gatk_config_path = os.path.join(work_dir, "%s_gatk_config.csv" % uuid)
     gatkfp = open(gatk_config_path, "w")
-    print >> gatkfp, "%s,https://s3.amazonaws.com/%s/analysis/%s.bam" % (uuid, s3_bucket, uuid)
+    print >> gatkfp, "%s,https://s3%s.amazonaws.com/%s/analysis/%s.bam" % (uuid, bucket_region, s3_bucket, uuid)
     gatkfp.flush()
     gatkfp.close()
     gatk_inputs['config'] = job.fileStore.writeGlobalFile(gatk_config_path)
@@ -225,7 +231,7 @@ if __name__ == '__main__':
     
     adam_inputs = {'numWorkers': args.num_nodes - 1,
                    'outDir':     's3://%s/analysis/%s.bam' % (args.s3_bucket, args.uuid),
-                   'knownSNPs':  args.dbsnp,
+                   'knownSNPs':  args.dbsnp.replace("https://s3-us-west-2.amazonaws.com/", "s3://"),
                    'accessKey':  args.aws_access_key,
                    'secretKey':  args.aws_secret_key,
                    'driverMemory': args.driver_memory,
@@ -250,6 +256,7 @@ if __name__ == '__main__':
 
     Job.Runner.startToil(Job.wrapJobFn(static_dag,
                                        args.s3_bucket,
+                                       args.bucket_region,
                                        args.uuid,
                                        bwa_inputs,
                                        adam_inputs,
