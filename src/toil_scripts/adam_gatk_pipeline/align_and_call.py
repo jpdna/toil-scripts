@@ -193,7 +193,7 @@ def build_parser():
     # return built parser
     return parser
 
-def static_dag(job, s3_bucket, uuid, bwa_inputs, adam_inputs, gatk_preprocess_inputs, gatk_adam_call_inputs, gatk_gatk_call_inputs):
+def static_dag(job, bucket_region, s3_bucket, uuid, bwa_inputs, adam_inputs, gatk_preprocess_inputs, gatk_adam_call_inputs, gatk_gatk_call_inputs):
     """
     Prefer this here as it allows us to pull the job functions from other jobs
     without rewrapping the job functions back together.
@@ -357,6 +357,7 @@ if __name__ == '__main__':
                              'suffix': '.gatk'}
 
     Job.Runner.startToil(Job.wrapJobFn(static_dag,
+                                       args.bucket_region,
                                        args.s3_bucket,
                                        args.uuid,
                                        bwa_inputs,
