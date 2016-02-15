@@ -312,7 +312,7 @@ class WorkerService(Job.Service):
                                                                  "-e", "SPARK_LOCAL_DIRS=/ephemeral/spark/local",
                                                                  "-e", "SPARK_WORKER_DIR=/ephemeral/spark/work"],
                                             tool_parameters = [self.masterIP+":"+SPARK_MASTER_PORT],
-                                            sudo = inputs['sudo'],
+                                            sudo = self.sudo,
                                             check_output = True)[:-1]
         self.hdfsContainerID = docker_call(no_rm = True,
                                            work_dir = os.getcwd(),
@@ -321,7 +321,7 @@ class WorkerService(Job.Service):
                                                                 "-d",
                                                                 "-v", "/mnt/ephemeral/:/ephemeral/:rw"],
                                            tool_parameters = [self.masterIP],
-                                           sudo = inputs['sudo'],
+                                           sudo = self.sudo,
                                            check_output = True)[:-1]
                                            
         return

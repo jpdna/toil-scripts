@@ -536,7 +536,10 @@ def upload_to_s3(work_dir, input_args, output_file):
     job_vars: tuple         Contains the dictionaries: input_args and ids
     """
 
-    work_dir = job.fileStore.getLocalTempDir()
+    # Parse s3_dir to get bucket and s3 path
+    s3_dir = input_args['s3_dir']
+    bucket_name = s3_dir.lstrip('/').split('/')[0]
+    bucket_dir = '/'.join(s3_dir.lstrip('/').split('/')[1:])
 
     if input_args['aws_access_key']:
         os.environ['AWS_ACCESS_KEY_ID'] = input_args['aws_access_key']
@@ -549,6 +552,9 @@ def upload_to_s3(work_dir, input_args, output_file):
     # does this need to be uploaded with encryption?
     if input_args['ssec']:
        key_path = input_args['ssec']
+
+       base_url = 'https://s3.amazonaws.com/'
+       url = os.path.join(base_url, bucket_name, bucket_dir, output_file)
 
        # Generate keyfile for upload
        with open(os.path.join(work_dir, uuid + '.key'), 'wb') as f_out:
