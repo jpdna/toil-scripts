@@ -177,7 +177,7 @@ def upload_or_move(job, input_args, output):
     else:
         raise ValueError('No output_directory or s3_dir defined. Cannot determine where to store %s' % output)
 
-def download_from_url(job, url, name):
+def download_from_url_gatk(job, url, name):
     """
     Simple curl request made for a given url
 
@@ -345,7 +345,7 @@ def create_reference_dict(job, ref_id, sudo):
 
 
 # TODO Start of Pipeline
-def download_shared_files(job, input_args):
+def download_gatk_files(job, input_args):
     """
     Downloads files shared by all samples in the pipeline
 
@@ -353,7 +353,7 @@ def download_shared_files(job, input_args):
     """
     shared_ids = {}
     for fname in ['ref.fa', 'phase.vcf', 'mills.vcf', 'dbsnp.vcf']:
-        shared_ids[fname] = job.addChildJobFn(download_from_url, url=input_args[fname], name=fname).rv()
+        shared_ids[fname] = job.addChildJobFn(download_from_url_gatk, url=input_args[fname], name=fname).rv()
     job.addFollowOnJobFn(reference_preprocessing, shared_ids, input_args)
 
 
@@ -406,7 +406,7 @@ def download_sample(job, shared_ids, input_args, sample):
     if input_args['ssec']:
         shared_ids['sample.bam'] = job.addChildJobFn(download_encrypted_file, input_args, 'sample.bam').rv()
     else:
-        shared_ids['sample.bam'] = job.addChildJobFn(download_from_url, url=url, name='sample.bam').rv()
+        shared_ids['sample.bam'] = job.addChildJobFn(download_from_url_gatk, url=url, name='sample.bam').rv()
     job.addFollowOnJobFn(index_sample, shared_ids, input_args)
 
 
@@ -690,7 +690,7 @@ def main():
 
 
     # Launch Pipeline
-    Job.Runner.startToil(Job.wrapJobFn(download_shared_files, inputs), pargs)
+    Job.Runner.startToil(Job.wrapJobFn(download_gatk_files, inputs), pargs)
 
 if __name__ == '__main__':
     main()
