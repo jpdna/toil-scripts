@@ -180,7 +180,8 @@ def docker_call(work_dir,
                 outfile=None,
                 sudo=False,
                 docker_parameters=None,
-                check_output=False):
+                check_output=False,
+                no_rm=False):
     """
     Makes subprocess call of a command to a docker container.
 
@@ -190,7 +191,11 @@ def docker_call(work_dir,
     outfile: file           Filehandle that stderr will be passed to
     sudo: bool              If the user wants the docker command executed as sudo
     """
-    base_docker_call = 'docker run --rm --log-driver=none -v {}:/data'.format(work_dir).split()
+    rm = '--rm'
+    if no_rm:
+        rm = ''
+
+    base_docker_call = ('docker run %s --log-driver=none -v %s:/data' % (rm, work_dir)).split()
 
     if sudo:
         base_docker_call = ['sudo'] + base_docker_call
