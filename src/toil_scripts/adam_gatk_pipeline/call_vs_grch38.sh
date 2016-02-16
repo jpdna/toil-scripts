@@ -28,11 +28,11 @@ python -m toil_scripts.adam_gatk_pipeline.align_and_call \
     --num_nodes 3 \
     --driver_memory 50g \
     --executor_memory 50g \
-    --phase https://s3-us-west-2.amazonaws.com/cgl-pipeline-inputs/variant_grch38/ALL.wgs.1000G_phase3.GRCh38.ncbi_remapper.20150424.shapeit2_indels.vcf.gz \
-    --mills https://s3-us-west-2.amazonaws.com/cgl-pipeline-inputs/variant_grch38/Mills_and_1000G_gold_standard.indels.b38.primary_assembly.vcf.gz \
-    --dbsnp https://s3-us-west-2.amazonaws.com/cgl-pipeline-inputs/variant_grch38/ALL_20141222.dbSNP142_human_GRCh38.snps.vcf.gz \
-    --omni https://s3-us-west-2.amazonaws.com/cgl-pipeline-inputs/variant_grch38/ALL.wgs.1000G_phase3.GRCh38.ncbi_remapper.20150424.shapeit2_indels.vcf.gz \
-    --hapmap https://s3-us-west-2.amazonaws.com/cgl-pipeline-inputs/variant_grch38/ALL_20141222.dbSNP142_human_GRCh38.snps.vcf.gz \
+    --phase https://s3-us-west-2.amazonaws.com/cgl-pipeline-inputs/variant_grch38/ALL.wgs.1000G_phase3.GRCh38.ncbi_remapper.20150424.shapeit2_indels.vcf \
+    --mills https://s3-us-west-2.amazonaws.com/cgl-pipeline-inputs/variant_grch38/Mills_and_1000G_gold_standard.indels.b38.primary_assembly.vcf \
+    --dbsnp https://s3-us-west-2.amazonaws.com/cgl-pipeline-inputs/variant_grch38/ALL_20141222.dbSNP142_human_GRCh38.snps.vcf \
+    --omni https://s3-us-west-2.amazonaws.com/cgl-pipeline-inputs/variant_grch38/1000G_omni2.5.hg38.vcf \
+    --hapmap https://s3-us-west-2.amazonaws.com/cgl-pipeline-inputs/variant_grch38/hapmap_3.3.hg38.vcf \
     --batchSystem=mesos \
     --mesosMaster $(hostname -i):5050 \
     --workDir /var/lib/toil \
