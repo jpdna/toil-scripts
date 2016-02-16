@@ -384,6 +384,7 @@ def spawn_batch_preprocessing(job, shared_ids, input_args):
     # does the config file exist locally? if not, try to read from job store
     if not os.path.exists(config):
 
+        work_dir = job.fileStore.getLocalTempDir()
         config_path = os.path.join(work_dir, 'config.txt')
         job.fileStore.readGlobalFile(config, config_path)
         config = config_path
