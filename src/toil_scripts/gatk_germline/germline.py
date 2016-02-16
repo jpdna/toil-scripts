@@ -257,10 +257,10 @@ def create_reference_dict(job, shared_ids, input_args):
     docker_call(work_dir, command, 'quay.io/ucsc_cgl/picardtools', [ref_path], [picard_output])
     # Update fileStore for output
     shared_ids['ref.dict'] = job.fileStore.writeGlobalFile(picard_output)
-    job.addChildJobFn(spawn_batch_jobs, shared_ids, input_args)
+    job.addChildJobFn(spawn_batch_variant_calling, shared_ids, input_args)
 
 
-def spawn_batch_jobs(job, shared_ids, input_args):
+def spawn_batch_variant_calling(job, shared_ids, input_args):
     """
     Reads config file and dynamically starts a job for each sample.
 

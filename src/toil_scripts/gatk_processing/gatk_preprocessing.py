@@ -368,10 +368,10 @@ def reference_preprocessing(job, shared_ids, input_args):
     sudo = input_args['sudo']
     shared_ids['ref.fa.fai'] = job.addChildJobFn(create_reference_index, ref_id, sudo).rv()
     shared_ids['ref.dict'] = job.addChildJobFn(create_reference_dict, ref_id, sudo).rv()
-    job.addFollowOnJobFn(spawn_batch_jobs, shared_ids, input_args)
+    job.addFollowOnJobFn(spawn_batch_preprocessing, shared_ids, input_args)
 
 
-def spawn_batch_jobs(job, shared_ids, input_args):
+def spawn_batch_preprocessing(job, shared_ids, input_args):
     """
     Spawn a pipeline for each sample in the configuration file
 
@@ -380,6 +380,14 @@ def spawn_batch_jobs(job, shared_ids, input_args):
     """
     samples = []
     config = input_args['config']
+
+    # does the config file exist locally? if not, try to read from job store
+    if not os.path.exists(config):
+
+        config_path = os.path.join(work_dir, 'config.txt')
+        job.fileStore.readGlobalFile(config, config_path)
+        config = config_path
+
     with open(config, 'r') as f:
         for line in f.readlines():
             if not line.isspace():

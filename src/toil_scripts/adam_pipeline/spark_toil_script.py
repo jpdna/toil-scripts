@@ -80,17 +80,26 @@ def call_conductor(masterIP, inputs, src, dst):
                 sudo = inputs['sudo'])
 
 
-def call_adam(inputs, masterIP, arguments):
+def call_adam(masterIP, inputs, arguments):
+
+    params = []
+    default_params = ["--master", ("spark://%s:%s" % (masterIP, SPARK_MASTER_PORT)), 
+                      "--conf", ("spark.driver.memory=%s" % inputs["driverMemory"]),
+                      "--conf", ("spark.executor.memory=%s" % inputs["executorMemory"]),
+                      "--conf", ("spark.hadoop.fs.default.name=hdfs://%s:%s" % (masterIP, HDFS_MASTER_PORT)),
+                      "--"]
+    try:
+        params = default_params + arguments
+    except:
+        log.error("parms: %s" % str(default_params))
+        log.error("args: %s" % str(arguments))
+        raise
 
     docker_call(no_rm = True,
                 work_dir = os.getcwd(),
                 tool = "quay.io/ucsc_cgl/adam:cd6ef41", 
-                docker_parameter = ["--net=host"],
-                tool_parameters = ["--master", "spark://"+masterIP+":"+SPARK_MASTER_PORT, 
-                 "--conf", "spark.driver.memory=%s" % inputs["driverMemory"],
-                 "--conf", "spark.executor.memory=%s" % inputs["executorMemory"],
-                 "--conf", "spark.hadoop.fs.default.name=hdfs://%s:%s" % (masterIP, HDFS_MASTER_PORT),
-                 "--"] + arguments,
+                docker_parameters = ["--net=host"],
+                tool_parameters = params,
                 sudo = inputs['sudo'])
 
 
