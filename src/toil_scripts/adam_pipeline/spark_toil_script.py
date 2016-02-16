@@ -48,7 +48,7 @@ def start_master(job, inputs):
     """
     log.write("master job\n")
     log.flush()
-    masterIP = job.addService(MasterService(inputs['sudo']))
+    masterIP = job.addService(MasterService(inputs['sudo']), memory="%s G" % inputs['executor_memory'])
     job.addChildJobFn(start_workers, masterIP, inputs)
 
 
@@ -59,8 +59,8 @@ def start_workers(job, masterIP, inputs):
     log.write("workers job\n")
     log.flush()
     for i in range(inputs['numWorkers']):
-        job.addService(WorkerService(masterIP, inputs['sudo']))
-    job.addFollowOnJobFn(download_data, masterIP, inputs)
+        job.addService(WorkerService(masterIP, inputs['sudo']), memory="%s G" % inputs['executor_memory'])
+    job.addFollowOnJobFn(download_data, masterIP, inputs, memory = "%s G" % inputs['driver_memory'])
 
 
 def call_conductor(masterIP, inputs, src, dst):
@@ -74,8 +74,8 @@ def call_conductor(masterIP, inputs, src, dst):
                                      "-e", "AWS_ACCESS_KEY="+inputs['accessKey'],
                                      "-e", "AWS_SECRET_KEY="+inputs['secretKey']],
                 tool_parameters = ["--master", "spark://"+masterIP+":"+SPARK_MASTER_PORT,
-                 "--conf", "spark.driver.memory=%s" % inputs["driverMemory"],
-                 "--conf", "spark.executor.memory=%s" % inputs["executorMemory"],
+                 "--conf", "spark.driver.memory=%sg" % inputs["driverMemory"],
+                 "--conf", "spark.executor.memory=%sg" % inputs["executorMemory"],
                  "--", "-C", src, dst],
                 sudo = inputs['sudo'])
 
@@ -84,8 +84,8 @@ def call_adam(masterIP, inputs, arguments):
 
     params = []
     default_params = ["--master", ("spark://%s:%s" % (masterIP, SPARK_MASTER_PORT)), 
-                      "--conf", ("spark.driver.memory=%s" % inputs["driverMemory"]),
-                      "--conf", ("spark.executor.memory=%s" % inputs["executorMemory"]),
+                      "--conf", ("spark.driver.memory=%sg" % inputs["driverMemory"]),
+                      "--conf", ("spark.executor.memory=%sg" % inputs["executorMemory"]),
                       "--conf", ("spark.hadoop.fs.default.name=hdfs://%s:%s" % (masterIP, HDFS_MASTER_PORT)),
                       "--"]
     try:
@@ -132,7 +132,7 @@ def download_data(job, masterIP, inputs):
 
     call_conductor(masterIP, inputs, inputs['bamName'], hdfsBAM)
      
-    job.addFollowOnJobFn(adam_convert, masterIP, hdfsBAM, hdfsSNPs, inputs)
+    job.addFollowOnJobFn(adam_convert, masterIP, hdfsBAM, hdfsSNPs, inputs, memory = "%s G" % inputs['driver_memory'])
 
 
 def adam_convert(job, masterIP, inFile, snpFile, inputs):
@@ -163,7 +163,7 @@ def adam_convert(job, masterIP, inFile, snpFile, inputs):
     snpFileName = snpFile.split("/")[-1]
     remove_file(masterIP, snpFileName)
  
-    job.addFollowOnJobFn(adam_transform, masterIP, adamFile, adamSnpFile, inputs)
+    job.addFollowOnJobFn(adam_transform, masterIP, adamFile, adamSnpFile, inputs, memory = "%s G" % inputs['driver_memory'])
 
 
 def adam_transform(job, masterIP, inFile, snpFile, inputs):
@@ -217,7 +217,7 @@ def adam_transform(job, masterIP, inFile, snpFile, inputs):
 
     remove_file(masterIP, "bqsr.adam*")
 
-    job.addFollowOnJobFn(upload_data, masterIP, outFile, inputs)
+    job.addFollowOnJobFn(upload_data, masterIP, outFile, inputs, memory = '%s G' % inputs['driver_memory'])
 
 
 def upload_data(job, masterIP, hdfsName, inputs):

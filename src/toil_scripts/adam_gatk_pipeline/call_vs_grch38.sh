@@ -26,8 +26,8 @@ python -m toil_scripts.adam_gatk_pipeline.align_and_call \
     --alt https://s3-us-west-2.amazonaws.com/cgl-pipeline-inputs/variant_grch38/GRCh38_full_analysis_set_plus_decoy_hla.fa.alt \
     --use_bwakit \
     --num_nodes 3 \
-    --driver_memory 50g \
-    --executor_memory 50g \
+    --driver_memory 200 \
+    --executor_memory 200 \
     --phase https://s3-us-west-2.amazonaws.com/cgl-pipeline-inputs/variant_grch38/ALL.wgs.1000G_phase3.GRCh38.ncbi_remapper.20150424.shapeit2_indels.vcf \
     --mills https://s3-us-west-2.amazonaws.com/cgl-pipeline-inputs/variant_grch38/Mills_and_1000G_gold_standard.indels.b38.primary_assembly.vcf \
     --dbsnp https://s3-us-west-2.amazonaws.com/cgl-pipeline-inputs/variant_grch38/ALL_20141222.dbSNP142_human_GRCh38.snps.vcf \
