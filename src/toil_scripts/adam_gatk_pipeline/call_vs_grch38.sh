@@ -10,7 +10,7 @@ set -x -v
 
 python -m toil_scripts.adam_gatk_pipeline.align_and_call \
     aws:us-west-2:paschall-toil-jobstore \
-    --retryCount 1 \
+    --retryCount 5 \
     --uuid SRR062640 \
     --s3_bucket paschall-fc-test-west-2 \
     --bucket_region us-west-2 \
