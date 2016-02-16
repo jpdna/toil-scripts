@@ -9,10 +9,10 @@ set -x -v
 # using GATK followed by variant calling using GATK HaplotypeCaller.
 
 python -m toil_scripts.adam_gatk_pipeline.align_and_call \
-    aws:us-west-2:fnothaft-toil-jobstore \
+    aws:us-west-2:paschall-toil-jobstore \
     --retryCount 1 \
     --uuid SRR062640 \
-    --s3_bucket fnothaft-fc-test-west-2 \
+    --s3_bucket paschall-fc-test-west-2 \
     --bucket_region us-west-2 \
     --aws_access_key ${FC_AWS_ACCESS_KEY_ID} \
     --aws_secret_key ${FC_AWS_SECRET_ACCESS_KEY} \
