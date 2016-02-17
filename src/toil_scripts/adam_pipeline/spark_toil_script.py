@@ -346,6 +346,7 @@ class WorkerService(Job.Service):
 
             sys.stderr.write("Sleeping 30 seconds before checking HDFS startup.")
             time.sleep(30)
+            clusterID = ""
             try:
                 clusterID = check_output(["docker",
                                           "exec",
