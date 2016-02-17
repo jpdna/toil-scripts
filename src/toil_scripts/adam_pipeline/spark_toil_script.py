@@ -387,6 +387,9 @@ class WorkerService(Job.Service):
             else:
                 sys.stderr.write("HDFS datanode started up OK!")
                 hdfs_down = False
+
+        if retries >= 5:
+            raise RuntimeError("Failed %d times trying to start HDFS datanode." % retries)
                                    
         return
 
