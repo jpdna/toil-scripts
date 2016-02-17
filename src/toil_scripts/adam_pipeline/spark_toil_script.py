@@ -346,13 +346,18 @@ class WorkerService(Job.Service):
 
             sys.stderr.write("Sleeping 30 seconds before checking HDFS startup.")
             time.sleep(30)
-            clusterID = check_output(["docker",
-                                      "exec",
-                                      self.hdfsContainerID,
-                                      "grep",
-                                      "clusterID",
-                                      "-R",
-                                      "/opt/apache-hadoop/logs"])
+            try:
+                clusterID = check_output(["docker",
+                                          "exec",
+                                          self.hdfsContainerID,
+                                          "grep",
+                                          "clusterID",
+                                          "-R",
+                                          "/opt/apache-hadoop/logs"])
+            except:
+                # grep returns a non-zero exit code if the pattern is not found
+                # we expect to not find the pattern, so a non-zero code is OK
+                pass
 
             if "Incompatible" in clusterID:
                 sys.stderr.write("Hadoop Datanode failed to start with: %s" % clusterID)
