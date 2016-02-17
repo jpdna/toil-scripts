@@ -48,7 +48,7 @@ def start_master(job, inputs):
     """
     log.write("master job\n")
     log.flush()
-    masterIP = job.addService(MasterService(inputs['sudo']), memory="%s G" % inputs['executorMemory'])
+    masterIP = job.addService(MasterService(inputs['sudo'], "%s G" % inputs['executorMemory']))
     job.addChildJobFn(start_workers, masterIP, inputs)
 
 
@@ -59,7 +59,7 @@ def start_workers(job, masterIP, inputs):
     log.write("workers job\n")
     log.flush()
     for i in range(inputs['numWorkers']):
-        job.addService(WorkerService(masterIP, inputs['sudo']), memory="%s G" % inputs['executorMemory'])
+        job.addService(WorkerService(masterIP, inputs['sudo'], "%s G" % inputs['executorMemory']))
     job.addFollowOnJobFn(download_data, masterIP, inputs, memory = "%s G" % inputs['driverMemory'])
 
 
@@ -236,11 +236,12 @@ def upload_data(job, masterIP, hdfsName, inputs):
 
 class MasterService(Job.Service):
 
-    def __init__(self, sudo):
+    def __init__(self, sudo, memory):
 
-        Job.Service.__init__(self)
         self.sudo = sudo
-
+        self.memory = memory
+        self.cores = multiprocessing.cpu_count()
+        Job.Service.__init__(self, memory = self.memory, cores = self.cores)
 
     def start(self):
         """
@@ -299,10 +300,12 @@ class MasterService(Job.Service):
                 
 class WorkerService(Job.Service):
     
-    def __init__(self, masterIP, sudo):
-        Job.Service.__init__(self)
+    def __init__(self, masterIP, sudo, memory):
         self.masterIP = masterIP
         self.sudo = sudo
+        self.memory = memory
+        self.cores = multiprocessing.cpu_count()
+        Job.Service.__init__(self, memory = self.memory, cores = self.cores)
 
     def start(self):
         """
