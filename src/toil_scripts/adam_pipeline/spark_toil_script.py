@@ -350,8 +350,8 @@ class WorkerService(Job.Service):
                                       "exec",
                                       self.hdfsContainerID,
                                       "grep",
-                                      "-R",
                                       "clusterID",
+                                      "-R",
                                       "/opt/apache-hadoop/logs"])
 
             if "Incompatible" in clusterID:
