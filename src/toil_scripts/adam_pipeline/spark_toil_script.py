@@ -34,6 +34,7 @@ import os
 import multiprocessing
 from subprocess import call, check_call, check_output
 import sys
+import time
 from toil.job import Job
 from toil_scripts.batch_alignment.bwa_alignment import docker_call
 
@@ -327,6 +328,7 @@ class WorkerService(Job.Service):
                                             tool_parameters = [self.masterIP+":"+SPARK_MASTER_PORT],
                                             sudo = self.sudo,
                                             check_output = True)[:-1]
+        
         self.hdfsContainerID = docker_call(no_rm = True,
                                            work_dir = os.getcwd(),
                                            tool = "quay.io/ucsc_cgl/apache-hadoop-worker:2.6.2",
@@ -336,7 +338,56 @@ class WorkerService(Job.Service):
                                            tool_parameters = [self.masterIP],
                                            sudo = self.sudo,
                                            check_output = True)[:-1]
-                                           
+        
+        # fake do/while to check if HDFS is up
+        hdfs_down = True
+        retries = 0
+        while hdfs_down and (retries < 5):
+
+            sys.stderr.write("Sleeping 30 seconds before checking HDFS startup.")
+            time.sleep(30)
+            clusterID = check_output(["docker",
+                                      "exec",
+                                      self.hdfsContainerID,
+                                      "grep",
+                                      "-R",
+                                      "clusterID",
+                                      "/opt/apache-hadoop/logs"])
+
+            if "Incompatible" in clusterID:
+                sys.stderr.write("Hadoop Datanode failed to start with: %s" % clusterID)
+                sys.stderr.write("Retrying container startup, retry #%d." % retries)
+                retries += 1
+
+                sys.stderr.write("Removing ephemeral hdfs directory.")
+                check_call(["docker",
+                            "exec",
+                            self.hdfsContainerID,
+                            "rm",
+                            "-rf",
+                            "/ephemeral/hdfs"])
+
+                sys.stderr.write("Killing container %s." % self.hdfsContainerID)
+                check_call(["docker",
+                            "kill",
+                            self.hdfsContainerID])
+
+                # todo: this is copied code. clean up!
+                sys.stderr.write("Restarting datanode.")
+                self.hdfsContainerID = docker_call(no_rm = True,
+                                                   work_dir = os.getcwd(),
+                                                   tool = "quay.io/ucsc_cgl/apache-hadoop-worker:2.6.2",
+                                                   docker_parameters = ["--net=host",
+                                                                        "-d",
+                                                                        "-v", "/mnt/ephemeral/:/ephemeral/:rw"],
+                                                   tool_parameters = [self.masterIP],
+                                                   sudo = self.sudo,
+                                                   check_output = True)[:-1]
+
+            else:
+                sys.stderr.write("HDFS datanode started up OK!")
+                hdfs_down = False
+                                   
         return
 
     def stop(self):
