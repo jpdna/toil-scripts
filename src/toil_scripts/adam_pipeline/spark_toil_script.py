@@ -48,7 +48,7 @@ def start_master(job, inputs):
     """
     log.write("master job\n")
     log.flush()
-    masterIP = job.addService(MasterService(inputs['sudo']), memory="%s G" % inputs['executor_memory'])
+    masterIP = job.addService(MasterService(inputs['sudo']), memory="%s G" % inputs['executorMemory'])
     job.addChildJobFn(start_workers, masterIP, inputs)
 
 
@@ -59,8 +59,8 @@ def start_workers(job, masterIP, inputs):
     log.write("workers job\n")
     log.flush()
     for i in range(inputs['numWorkers']):
-        job.addService(WorkerService(masterIP, inputs['sudo']), memory="%s G" % inputs['executor_memory'])
-    job.addFollowOnJobFn(download_data, masterIP, inputs, memory = "%s G" % inputs['driver_memory'])
+        job.addService(WorkerService(masterIP, inputs['sudo']), memory="%s G" % inputs['executorMemory'])
+    job.addFollowOnJobFn(download_data, masterIP, inputs, memory = "%s G" % inputs['driverMemory'])
 
 
 def call_conductor(masterIP, inputs, src, dst):
@@ -132,7 +132,7 @@ def download_data(job, masterIP, inputs):
 
     call_conductor(masterIP, inputs, inputs['bamName'], hdfsBAM)
      
-    job.addFollowOnJobFn(adam_convert, masterIP, hdfsBAM, hdfsSNPs, inputs, memory = "%s G" % inputs['driver_memory'])
+    job.addFollowOnJobFn(adam_convert, masterIP, hdfsBAM, hdfsSNPs, inputs, memory = "%s G" % inputs['driverMemory'])
 
 
 def adam_convert(job, masterIP, inFile, snpFile, inputs):
@@ -163,7 +163,7 @@ def adam_convert(job, masterIP, inFile, snpFile, inputs):
     snpFileName = snpFile.split("/")[-1]
     remove_file(masterIP, snpFileName)
  
-    job.addFollowOnJobFn(adam_transform, masterIP, adamFile, adamSnpFile, inputs, memory = "%s G" % inputs['driver_memory'])
+    job.addFollowOnJobFn(adam_transform, masterIP, adamFile, adamSnpFile, inputs, memory = "%s G" % inputs['driverMemory'])
 
 
 def adam_transform(job, masterIP, inFile, snpFile, inputs):
@@ -217,7 +217,7 @@ def adam_transform(job, masterIP, inFile, snpFile, inputs):
 
     remove_file(masterIP, "bqsr.adam*")
 
-    job.addFollowOnJobFn(upload_data, masterIP, outFile, inputs, memory = '%s G' % inputs['driver_memory'])
+    job.addFollowOnJobFn(upload_data, masterIP, outFile, inputs, memory = '%s G' % inputs['driverMemory'])
 
 
 def upload_data(job, masterIP, hdfsName, inputs):
