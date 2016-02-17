@@ -12,7 +12,7 @@ set -x -v
 python -m toil_scripts.adam_gatk_pipeline.align_and_call \
     aws:us-west-2:fnothaft-toil-jobstore \
     --retryCount 1 \
-    --uuid SRR062640 \
+    --uuid SRR062643 \
     --s3_bucket fnothaft-fc-test-west-2 \
     --bucket_region us-west-2 \
     --aws_access_key ${FC_AWS_ACCESS_KEY_ID} \

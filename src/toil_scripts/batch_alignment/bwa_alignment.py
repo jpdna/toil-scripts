@@ -459,7 +459,16 @@ def fix_bam_header(job, job_vars, bam_id):
     input_args, ids = job_vars
     sudo = input_args['sudo']
     # Retrieve input file
-    job.fileStore.readGlobalFile(bam_id, os.path.join(work_dir, 'aligned.bam'))
+    try:
+        job.fileStore.readGlobalFile(bam_id, os.path.join(work_dir, 'aligned.bam'))
+    except:
+        # remove and retry?
+        try:
+            os.remove(os.path.join(work_dir, 'aligned.bam'))
+        except:
+            pass
+        
+        job.fileStore.readGlobalFile(bam_id, os.path.join(work_dir, 'aligned.bam'))
     # Call: Samtools
     parameters = ['view',
                   '-H',
