@@ -31,6 +31,7 @@ toil            - pip install --pre toil
 
 import argparse
 import os
+import multiprocessing
 from subprocess import call, check_call, check_output
 import sys
 from toil.job import Job
