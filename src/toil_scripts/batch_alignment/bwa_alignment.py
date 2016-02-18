@@ -392,7 +392,7 @@ def run_bwa(job, job_vars):
                       '/data/r2.fq.gz']
 
         try:
-            docker_call(tool='quay.io/ucsc_cgl/bwakit:0.7.12',
+            docker_call(tool='quay.io/ucsc_cgl/bwakit:0.7.12--f05007590c9e2953d20a0a18aa412454eed3ab59',
                         tool_parameters=parameters, work_dir=work_dir, sudo=sudo)
         except:
             last = work_dir.split('/')[-1]
@@ -405,10 +405,9 @@ def run_bwa(job, job_vars):
         # bwa insists on adding an `*.aln.sam` suffix, so rename the output file
         os.rename(os.path.join(work_dir, 'aligned.aln.bam'),
                   os.path.join(work_dir, 'aligned.bam'))
-
-        # write aligned sam file to global file store
+        
         return job.fileStore.writeGlobalFile(os.path.join(work_dir, 'aligned.bam'))
-
+        
     else:
         # Call: BWA
         parameters = ["mem",
