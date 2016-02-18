@@ -549,11 +549,6 @@ def upload_to_s3(work_dir, input_args, output_file):
     bucket_name = s3_dir.lstrip('/').split('/')[0]
     bucket_dir = '/'.join(s3_dir.lstrip('/').split('/')[1:])
 
-    if input_args['aws_access_key']:
-        os.environ['AWS_ACCESS_KEY_ID'] = input_args['aws_access_key']
-    if input_args['aws_secret_key']:
-        os.environ['AWS_SECRET_ACCESS_KEY'] = input_args['aws_secret_key']
-
     # what is the path we are uploading to?
     s3_path = os.path.join('s3://', bucket_name, bucket_dir, output_file)
 

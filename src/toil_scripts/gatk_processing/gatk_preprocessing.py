@@ -163,18 +163,17 @@ def copy_to_output_dir(work_dir, output_dir, uuid=None, files=None):
         else:
             shutil.copy(os.path.join(work_dir, fname), os.path.join(output_dir, '{}.{}'.format(uuid, fname)))
 
-def upload_or_move(job, input_args, output):
+def upload_or_move(job, work_dir, input_args, output):
 
     # are we moving this into a local dir, or up to s3?
     if input_args['output_dir']:
         # get output path and
         output_dir = input_args['output_dir']
-        work_dir = job.fileStore.getLocalTempDir()
         make_directory(output_dir)
         move_to_output_dir(work_dir, output_dir, output)
 
     elif input_args['s3_dir']:
-        job.addChildJobFn(upload_to_s3, job_vars, output, disk='80G')
+        upload_to_s3(work_dir, input_args, output)
 
     else:
         raise ValueError('No output_directory or s3_dir defined. Cannot determine where to store %s' % output)
@@ -373,6 +372,10 @@ def reference_preprocessing(job, shared_ids, input_args):
     shared_ids: dict        Dictionary of fileStore IDs
     """
     ref_id = shared_ids['ref.fa']
+    if isinstance(ref_id, dict):
+        sys.stderr.write("shared_ids['ref.fa'] is a dict. %s['ref_id'] = %s." % (shared_ids, ref_id))
+        ref_id = ref_id['ref.fa']
+
     sudo = input_args['sudo']
     shared_ids['ref.fa.fai'] = job.addChildJobFn(create_reference_index, ref_id, sudo).rv()
     shared_ids['ref.dict'] = job.addChildJobFn(create_reference_dict, ref_id, sudo).rv()
@@ -682,7 +685,7 @@ def print_reads(job, shared_ids, input_args):
                 work_dir=work_dir, tool_parameters=parameters,
                 java_opts='-Xmx15g', sudo=sudo, outfiles=[outfile])
 
-    upload_or_move(job, input_args, outfile)
+    upload_or_move(job, work_dir, input_args, outfile)
 
 def main():
     """
