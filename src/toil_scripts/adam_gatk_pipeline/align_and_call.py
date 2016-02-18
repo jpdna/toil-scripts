@@ -318,14 +318,15 @@ if __name__ == '__main__':
         raise ValueError("--num_nodes allocates one Spark/HDFS master and n-1 workers, and thus must be greater than 1. %d was passed." % args.num_nodes)
 
     adam_inputs = {'numWorkers': args.num_nodes - 1,
-                   'outDir':     's3://%s/analysis/%s.bam' % (args.s3_bucket, args.uuid),
+                   'outDir':     's3://%s/analysis/%s' % (args.s3_bucket, args.uuid),
                    'knownSNPs':  args.dbsnp.replace("https://s3-us-west-2.amazonaws.com/", "s3://"),
                    'accessKey':  args.aws_access_key,
                    'secretKey':  args.aws_secret_key,
                    'driverMemory': args.driver_memory,
                    'executorMemory': args.executor_memory,
                    'sudo': args.sudo,
-                   'bamName': 's3://%s/alignment/%s.bam' % (args.s3_bucket, args.uuid)}
+                   'bamName': 's3://%s/alignment/%s.bam' % (args.s3_bucket, args.uuid),
+                   'suffix': 'adam'}
 
     gatk_preprocess_inputs = {'ref.fa': args.ref,
                               'phase.vcf': args.phase,

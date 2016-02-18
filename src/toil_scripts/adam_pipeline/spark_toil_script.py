@@ -231,8 +231,12 @@ def upload_data(job, masterIP, hdfsName, inputs):
 
     fileSystem, path = hdfsName.split('://')
     nameOnly = path.split('/')[-1]
+    
+    uploadName = "%s/%s" % (inputs['outDir'], nameOnly)
+    if inputs['suffix']:
+        uploadName = uploadName.replace('.bam', '_%s.bam' % inputs['suffix'])
 
-    call_conductor(masterIP, inputs, hdfsName, inputs['outDir']+"/"+nameOnly)
+    call_conductor(masterIP, inputs, hdfsName, uploadName)
     
 # SERVICE CLASSES
 
@@ -463,7 +467,8 @@ def main(args):
               'secretKey':  options.aws_secret_key,
               'driverMemory': options.driver_memory,
               'executorMemory': options.executor_memory,
-              'sudo': options.sudo}
+              'sudo': options.sudo,
+              'suffix': None}
 
     Job.Runner.startToil(Job.wrapJobFn(start_master, inputs), options)
 

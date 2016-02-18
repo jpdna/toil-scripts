@@ -29,7 +29,9 @@ import hashlib
 import base64
 import subprocess
 import shutil
+import sys
 from toil.job import Job
+from toil_scripts.batch_alignment.bwa_alignment import upload_to_s3
 
 debug = False 
 
@@ -311,7 +313,13 @@ def create_reference_index(job, ref_id, sudo):
     """
     work_dir = job.fileStore.getLocalTempDir()
     # Retrieve file path to reference
-    job.fileStore.readGlobalFile(ref_id, os.path.join(work_dir, 'ref.fa'))  
+    try:
+        job.fileStore.readGlobalFile(ref_id, os.path.join(work_dir, 'ref.fa'))  
+    except:
+        sys.stderr.write("Failed when reading global file %s to %s." % (ref_id,
+                                                                        os.path.join(work_dir, 'ref.fa')))
+        raise
+
     # Call: Samtools
     command = ['faidx', 'ref.fa']
     docker_call(work_dir=work_dir, tool_parameters=command,
