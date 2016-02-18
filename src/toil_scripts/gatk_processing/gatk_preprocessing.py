@@ -249,7 +249,7 @@ def docker_path(file_path):
     return os.path.join('/data', os.path.basename(file_path))
 
 
-def docker_call(work_dir, tool_parameters, tool, java_opts=None,
+def docker_call_preprocess(work_dir, tool_parameters, tool, java_opts=None,
                 outfiles=None, sudo=False):
     """
     Makes subprocess call of a command to a docker container.
@@ -262,8 +262,10 @@ def docker_call(work_dir, tool_parameters, tool, java_opts=None,
     sudo: bool              If the user wants the docker command executed as sudo
     """
     base_docker_call = 'docker run --log-driver=none --rm -v {}:/data'.format(work_dir).split()
-    if sudo:
-        base_docker_call = ['sudo'] + base_docker_call
+
+    # no-op sudo
+    #if sudo:
+    #    base_docker_call = ['sudo'] + base_docker_call
     if java_opts:
         base_docker_call = base_docker_call + ['-e', 'JAVA_OPTS={}'.format(java_opts)]
     if debug:
@@ -315,13 +317,18 @@ def create_reference_index(job, ref_id, sudo):
     try:
         job.fileStore.readGlobalFile(ref_id, os.path.join(work_dir, 'ref.fa'))  
     except:
-        sys.stderr.write("Failed when reading global file %s to %s." % (ref_id,
-                                                                        os.path.join(work_dir, 'ref.fa')))
-        raise
+        sys.stderr.write("Failed when reading global file %s to %s. Retrying with dict index." % (ref_id,
+                                                                                                  os.path.join(work_dir, 'ref.fa')))
+        
+        try:
+            job.fileStore.readGlobalFile(ref_id['ref.fa'], os.path.join(work_dir, 'ref.fa'))  
+        except:
+            sys.stderr.write("Reading %s on retry failed." % ref_id['ref.fa'])
+            raise
 
     # Call: Samtools
     command = ['faidx', 'ref.fa']
-    docker_call(work_dir=work_dir, tool_parameters=command,
+    docker_call_preprocess(work_dir=work_dir, tool_parameters=command,
                 tool='quay.io/ucsc_cgl/samtools:0.1.19--dd5ac549b95eb3e5d166a5e310417ef13651994e',
                 outfiles=['ref.fa.fai'],
                 sudo=sudo)
@@ -343,7 +350,7 @@ def create_reference_dict(job, ref_id, sudo):
     ref_path = job.fileStore.readGlobalFile(ref_id, os.path.join(work_dir, 'ref.fa'))
     # Call: picardtools
     command = ['CreateSequenceDictionary', 'R=ref.fa', 'O=ref.dict']
-    docker_call(work_dir=work_dir, tool_parameters=command,
+    docker_call_preprocess(work_dir=work_dir, tool_parameters=command,
                 tool='quay.io/ucsc_cgl/picardtools:1.95--dd5ac549b95eb3e5d166a5e310417ef13651994e',
                 outfiles=['ref.dict'],
                 sudo=sudo)
@@ -447,7 +454,7 @@ def index_sample(job, shared_ids, input_args):
     # Retrieve file path
     # Call: index the normal.bam
     parameters = ['index', 'sample.bam']
-    docker_call(work_dir=work_dir, tool_parameters=parameters,
+    docker_call_preprocess(work_dir=work_dir, tool_parameters=parameters,
                 tool='quay.io/ucsc_cgl/samtools:0.1.19--dd5ac549b95eb3e5d166a5e310417ef13651994e',
                 outfiles=['sample.bam.bai'],
                 sudo=sudo)
@@ -470,7 +477,7 @@ def sort_sample(job, shared_ids, input_args):
                'OUTPUT=sample.sorted.bam',
                'SORT_ORDER=coordinate']
     sudo = input_args['sudo']
-    docker_call(work_dir=work_dir, tool_parameters=command,
+    docker_call_preprocess(work_dir=work_dir, tool_parameters=command,
                 tool='quay.io/ucsc_cgl/picardtools:1.95--dd5ac549b95eb3e5d166a5e310417ef13651994e',
                 outfiles=['sample.sorted.bam'],
                 sudo=sudo)
@@ -493,7 +500,7 @@ def mark_dups_sample(job, shared_ids, input_args):
                'OUTPUT=sample.mkdups.bam',
                'METRICS_FILE=metrics.txt',
                'ASSUME_SORTED=true']
-    docker_call(work_dir=work_dir, tool_parameters=command,
+    docker_call_preprocess(work_dir=work_dir, tool_parameters=command,
                 tool='quay.io/ucsc_cgl/picardtools:1.95--dd5ac549b95eb3e5d166a5e310417ef13651994e',
                 outfiles=['sample.mkdups.bam'],
                 sudo=sudo)
@@ -518,7 +525,7 @@ def index_mkdups(job, shared_ids, input_args):
     # Retrieve file path
     # Call: index the normal.bam
     parameters = ['index', 'sample.mkdups.bam']
-    docker_call(work_dir=work_dir, tool_parameters=parameters,
+    docker_call_preprocess(work_dir=work_dir, tool_parameters=parameters,
                 tool='quay.io/ucsc_cgl/samtools:0.1.19--dd5ac549b95eb3e5d166a5e310417ef13651994e',
                 outfiles=['sample.mkdups.bam.bai'],
                 sudo=sudo)
@@ -552,7 +559,7 @@ def realigner_target_creator(job, shared_ids, input_args):
                   '--downsampling_type', 'NONE',
                   '-o', 'sample.intervals']
 
-    docker_call(work_dir=work_dir, tool_parameters=parameters,
+    docker_call_preprocess(work_dir=work_dir, tool_parameters=parameters,
 		tool='quay.io/ucsc_cgl/gatk:3.4--dd5ac549b95eb3e5d166a5e310417ef13651994e',
                 java_opts='-Xmx10g',
                 outfiles=['sample.intervals'],
@@ -589,7 +596,7 @@ def indel_realignment(job, shared_ids, input_args):
                   '-maxReads', str(720000),
                   '-maxInMemory', str(5400000),
                   '-o', 'sample.indel.bam']
-    docker_call(tool='quay.io/ucsc_cgl/gatk:3.4--dd5ac549b95eb3e5d166a5e310417ef13651994e',
+    docker_call_preprocess(tool='quay.io/ucsc_cgl/gatk:3.4--dd5ac549b95eb3e5d166a5e310417ef13651994e',
                 work_dir=work_dir, tool_parameters=parameters,
                 java_opts='-Xmx10g', sudo=sudo,
                 outfiles=['sample.indel.bam', 'sample.indel.bam.bai'])
@@ -615,7 +622,7 @@ def index_indel(job, shared_ids, input_args):
     # Retrieve file path
     # Call: index the normal.bam
     parameters = ['index', 'sample.indel.bam']
-    docker_call(work_dir=work_dir, tool_parameters=parameters,
+    docker_call_preprocess(work_dir=work_dir, tool_parameters=parameters,
                 tool='quay.io/ucsc_cgl/samtools:0.1.19--dd5ac549b95eb3e5d166a5e310417ef13651994e',
                 outfiles=['sample.indel.bam.bai'],
                 sudo=sudo)
@@ -646,7 +653,7 @@ def base_recalibration(job, shared_ids, input_args):
                   '-I', 'sample.indel.bam',
                   '-knownSites', 'dbsnp.vcf',
                   '-o', 'sample.recal.table']
-    docker_call(tool='quay.io/ucsc_cgl/gatk:3.4--dd5ac549b95eb3e5d166a5e310417ef13651994e',
+    docker_call_preprocess(tool='quay.io/ucsc_cgl/gatk:3.4--dd5ac549b95eb3e5d166a5e310417ef13651994e',
                 work_dir=work_dir, tool_parameters=parameters,
                 java_opts='-Xmx15g', sudo=sudo,
                 outfiles=['sample.recal.table'])
@@ -681,7 +688,7 @@ def print_reads(job, shared_ids, input_args):
                   '-I', 'sample.indel.bam',
                   '-BQSR', 'sample.recal.table',
                   '-o', outfile]
-    docker_call(tool='quay.io/ucsc_cgl/gatk:3.4--dd5ac549b95eb3e5d166a5e310417ef13651994e',
+    docker_call_preprocess(tool='quay.io/ucsc_cgl/gatk:3.4--dd5ac549b95eb3e5d166a5e310417ef13651994e',
                 work_dir=work_dir, tool_parameters=parameters,
                 java_opts='-Xmx15g', sudo=sudo, outfiles=[outfile])
 
