@@ -232,7 +232,7 @@ def upload_data(job, masterIP, hdfsName, inputs):
     fileSystem, path = hdfsName.split('://')
     nameOnly = path.split('/')[-1]
     
-    uploadName = "%s/%s" % (inputs['outDir'], nameOnly)
+    uploadName = "%s/%s" % (inputs['outDir'], nameOnly.replace('processed', ''))
     if inputs['suffix']:
         uploadName = uploadName.replace('.bam', '_%s.bam' % inputs['suffix'])
 
