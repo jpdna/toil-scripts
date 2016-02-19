@@ -10,10 +10,10 @@ set -x -v
 
 # swapped phase and mills --> pos error in #https://s3-us-west-2.amazonaws.com/cgl-pipeline-inputs/variant_grch38/ALL.wgs.1000G_phase3.GRCh38.ncbi_remapper.20150424.shapeit2_indels.vcf \
 python -m toil_scripts.adam_gatk_pipeline.align_and_call \
-    aws:us-west-2:fnothaft-toil-jobstore \
+    aws:us-west-2:paschall-toil-jobstore \
     --retryCount 1 \
-    --uuid SRR062643 \
-    --s3_bucket fnothaft-fc-test-west-2 \
+    --uuid_manifest my_manifest_file \
+    --s3_bucket paschall-fc-test-west-2 \
     --bucket_region us-west-2 \
     --aws_access_key ${FC_AWS_ACCESS_KEY_ID} \
     --aws_secret_key ${FC_AWS_SECRET_ACCESS_KEY} \
