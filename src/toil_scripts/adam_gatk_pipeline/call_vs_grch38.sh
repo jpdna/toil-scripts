@@ -38,5 +38,6 @@ python -m toil_scripts.adam_gatk_pipeline.align_and_call \
     --mesosMaster $(hostname -i):5050 \
     --workDir /var/lib/toil \
     --file_size 1G \
-    --logInfo
+    --logInfo \
+    --clean never
 
