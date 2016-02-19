@@ -392,7 +392,7 @@ def run_bwa(job, job_vars):
                       '/data/r2.fq.gz']
 
         try:
-            docker_call(tool='quay.io/ucsc_cgl/bwakit:0.7.12--testuid',
+            docker_call(tool='quay.io/ucsc_cgl/bwakit:0.7.12--f05007590c9e2953d20a0a18aa412454eed3ab59',
                         tool_parameters=parameters, work_dir=work_dir, sudo=sudo)
         except:
             last = work_dir.split('/')[-1]
