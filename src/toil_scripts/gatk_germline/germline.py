@@ -148,8 +148,7 @@ def return_input_paths(job, work_dir, ids, *filenames):
         else:
             file_path = os.path.join(work_dir, filename)
         paths[filename] = file_path
-        if len(args) == 1:
-            return file_path
+
     return paths.values()
 
 
