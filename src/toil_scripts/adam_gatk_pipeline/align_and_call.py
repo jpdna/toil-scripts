@@ -242,7 +242,7 @@ def static_dag(job, bucket_region, s3_bucket, uuid, bwa_inputs, adam_inputs, gat
     # write config for GATK haplotype caller for the result of ADAM preprocessing
     gatk_adam_call_config_path = os.path.join(work_dir, "%s_gatk_adam_call_config.csv" % uuid)
     gatk_adam_call_fp = open(gatk_adam_call_config_path, "w")
-    print >> gatk_adam_call_fp, "%s,https://s3%s.amazonaws.com/%s/analysis/%s.adam.bam" % (uuid, bucket_region, s3_bucket, uuid)
+    print >> gatk_adam_call_fp, "%s,https://s3%s.amazonaws.com/%s/analysis/%s/%s.adam.bam" % (uuid, bucket_region, s3_bucket, uuid, uuid)
     gatk_adam_call_fp.flush()
     gatk_adam_call_fp.close()
     gatk_adam_call_inputs['config'] = job.fileStore.writeGlobalFile(gatk_adam_call_config_path)
@@ -250,7 +250,7 @@ def static_dag(job, bucket_region, s3_bucket, uuid, bwa_inputs, adam_inputs, gat
     # write config for GATK haplotype caller for the result of GATK preprocessing
     gatk_gatk_call_config_path = os.path.join(work_dir, "%s_gatk_gatk_call_config.csv" % uuid)
     gatk_gatk_call_fp = open(gatk_gatk_call_config_path, "w")
-    print >> gatk_gatk_call_fp, "%s,https://s3%s.amazonaws.com/%s/analysis/%s.gatk.bam" % (uuid, bucket_region, s3_bucket, uuid)
+    print >> gatk_gatk_call_fp, "%s,https://s3%s.amazonaws.com/%s/analysis/%s/%s.gatk.bam" % (uuid, bucket_region, s3_bucket, uuid, uuid)
     gatk_gatk_call_fp.flush()
     gatk_gatk_call_fp.close()
     gatk_gatk_call_inputs['config'] = job.fileStore.writeGlobalFile(gatk_gatk_call_config_path)
@@ -326,7 +326,7 @@ if __name__ == '__main__':
                    'executorMemory': args.executor_memory,
                    'sudo': args.sudo,
                    'bamName': 's3://%s/alignment/%s.bam' % (args.s3_bucket, args.uuid),
-                   'suffix': 'adam'}
+                   'suffix': '.adam'}
 
     gatk_preprocess_inputs = {'ref.fa': args.ref,
                               'phase.vcf': args.phase,
@@ -337,7 +337,7 @@ if __name__ == '__main__':
                               'ssec': None,
                               'cpu_count': str(multiprocessing.cpu_count()),
                               'suffix': '.gatk',
-                              's3_dir': "%s/%s/analysis" % (args.s3_bucket, args.uuid),}
+                              's3_dir': "%s/analysis/%s" % (args.s3_bucket, args.uuid),}
     
     gatk_adam_call_inputs = {'ref.fa': args.ref,
                              'phase.vcf': args.phase,
@@ -349,7 +349,7 @@ if __name__ == '__main__':
                              'uuid': None,
                              'cpu_count': str(multiprocessing.cpu_count()),
                              'ssec': None,
-                             's3_dir': "%s/%s/analysis" % (args.s3_bucket, args.uuid),
+                             's3_dir': "%s/analysis/%s" % (args.s3_bucket, args.uuid),
                              'file_size': args.file_size,
                              'aws_access_key':  args.aws_access_key,
                              'aws_secret_key':  args.aws_secret_key,
@@ -365,7 +365,7 @@ if __name__ == '__main__':
                              'uuid': None,
                              'cpu_count': str(multiprocessing.cpu_count()),
                              'ssec': None,
-                             's3_dir': "%s/%s/analysis" % (args.s3_bucket, args.uuid),
+                             's3_dir': "%s/analysis/%s" % (args.s3_bucket, args.uuid),
                              'file_size': args.file_size,
                              'aws_access_key':  args.aws_access_key,
                              'aws_secret_key':  args.aws_secret_key,

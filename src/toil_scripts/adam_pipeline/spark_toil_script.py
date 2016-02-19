@@ -234,7 +234,7 @@ def upload_data(job, masterIP, hdfsName, inputs):
     
     uploadName = "%s/%s" % (inputs['outDir'], nameOnly.replace('.processed', ''))
     if inputs['suffix']:
-        uploadName = uploadName.replace('.bam', '_%s.bam' % inputs['suffix'])
+        uploadName = uploadName.replace('.bam', '%s.bam' % inputs['suffix'])
 
     call_conductor(masterIP, inputs, hdfsName, uploadName)
     
