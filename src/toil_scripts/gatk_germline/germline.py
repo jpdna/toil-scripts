@@ -170,7 +170,7 @@ def write_to_filestore(job, work_dir, ids, *filenames):
     return ids
 
 
-def read_from_filestore(job, work_dir, ids, *filenames):
+def read_from_filestore_hc(job, work_dir, ids, *filenames):
     """
     Reads file from fileStore and writes it to working directory.
 
@@ -213,10 +213,10 @@ def batch_start(job, input_args):
     for file_name in shared_files:
         url = input_args[file_name]
         shared_ids[file_name] = job.addChildJobFn(download_url, url, file_name).rv()
-    job.addFollowOnJobFn(create_reference_index, shared_ids, input_args)
+    job.addFollowOnJobFn(create_reference_index_hc, shared_ids, input_args)
 
 
-def create_reference_index(job, shared_ids, input_args):
+def create_reference_index_hc(job, shared_ids, input_args):
     """
     Uses samtools to create reference index file in working directory,
     spawns next job in pipeline - create reference dictionary
@@ -235,10 +235,10 @@ def create_reference_index(job, shared_ids, input_args):
     docker_call(work_dir, faidx_command, 'quay.io/ucsc_cgl/samtools', [ref_path], [faidx_output])
     # Update fileStore for output
     shared_ids['ref.fa.fai'] = job.fileStore.writeGlobalFile(faidx_output)
-    job.addChildJobFn(create_reference_dict, shared_ids, input_args)
+    job.addChildJobFn(create_reference_dict_hc, shared_ids, input_args)
 
 
-def create_reference_dict(job, shared_ids, input_args):
+def create_reference_dict_hc(job, shared_ids, input_args):
     """
     Uses Picardtools to create sequence dictionary for reference genome.
     Calls next step in pipeline - spawn batch jobs
@@ -345,7 +345,7 @@ def haplotype_caller(job, shared_ids, input_args):
     """
     work_dir = job.fileStore.getLocalTempDir()
     input_files = ['ref.fa', 'ref.fa.fai', 'ref.dict', 'toil.bam', 'toil.bam.bai']
-    read_from_filestore(job, work_dir, shared_ids, *input_files)
+    read_from_filestore_hc(job, work_dir, shared_ids, *input_files)
     output = 'unified.raw.BOTH.gatk.vcf'
     # Call GATK -- HaplotypeCaller
     command = ['-nct', input_args['cpu_count'],
@@ -376,7 +376,7 @@ def vqsr_snp(job, shared_ids, input_args):
     work_dir = job.fileStore.getLocalTempDir()
     input_files = ['ref.fa', 'ref.fa.fai', 'ref.dict', 'unified.raw.BOTH.gatk.vcf',
                    'hapmap.vcf', 'omni.vcf', 'dbsnp.vcf', 'phase.vcf']
-    read_from_filestore(job, work_dir, shared_ids, *input_files)
+    read_from_filestore_hc(job, work_dir, shared_ids, *input_files)
     outputs = ['HAPSNP.recal', 'HAPSNP.tranches', 'HAPSNP.plots']
     command = ['-T', 'VariantRecalibrator',
                '-R', 'ref.fa',
@@ -411,7 +411,7 @@ def apply_vqsr_snp(job, shared_ids, input_args):
     suffix = input_args['suffix']
     input_files = ['ref.fa', 'ref.fa.fai', 'ref.dict', 'unified.raw.BOTH.gatk.vcf',
                    'HAPSNP.tranches', 'HAPSNP.recal']
-    read_from_filestore(job, work_dir, shared_ids, *input_files)
+    read_from_filestore_hc(job, work_dir, shared_ids, *input_files)
     output = '{}.HAPSNP.vqsr.SNP{}.vcf'.format(uuid, suffix)
     command = ['-T', 'ApplyRecalibration',
                '-input', 'unified.raw.BOTH.gatk.vcf',
@@ -424,10 +424,10 @@ def apply_vqsr_snp(job, shared_ids, input_args):
                '-mode', 'SNP']
     docker_call(work_dir, command, 'quay.io/ucsc_cgl/gatk', inputs, [output])
 
-    upload_or_move(job, input_args, output)
+    upload_or_move_hc(job, input_args, output)
 
 
-def upload_or_move(job, input_args, output):
+def upload_or_move_hc(job, input_args, output):
     
     work_dir = job.fileStore.getLocalTempDir()
 
@@ -459,7 +459,7 @@ def vqsr_indel(job, shared_ids, input_args):
     """
     work_dir = job.fileStore.getLocalTempDir()
     input_files = ['ref.fa', 'ref.fa.fai', 'ref.dict', 'unified.raw.BOTH.gatk.vcf', 'mills.vcf']
-    read_from_filestore(job, work_dir, shared_ids, *input_files)
+    read_from_filestore_hc(job, work_dir, shared_ids, *input_files)
     outputs = ['HAPINDEL.recal', 'HAPINDEL.tranches', 'HAPINDEL.plots']
     command = ['-T', 'VariantRecalibrator',
                '-R', 'ref.fa',
@@ -492,7 +492,7 @@ def apply_vqsr_indel(job, shared_ids, input_args):
     suffix = input_args['suffix']
     input_files = ['ref.fa', 'ref.fa.fai', 'ref.dict', 'unified.raw.BOTH.gatk.vcf',
                    'HAPINDEL.recal', 'HAPINDEL.tranches', 'HAPINDEL.plots']
-    read_from_filestore(job, work_dir, shared_ids, *input_files)
+    read_from_filestore_hc(job, work_dir, shared_ids, *input_files)
     output = '{}.HAPSNP.vqsr.INDEL{}.vcf'.format(uuid, suffix)
     command = ['-T', 'ApplyRecalibration',
                '-input', 'unified.raw.BOTH.gatk.vcf',
@@ -505,7 +505,7 @@ def apply_vqsr_indel(job, shared_ids, input_args):
                '-mode', 'INDEL']
     docker_call(work_dir, command, 'quay.io/ucsc_cgl/gatk', inputs, [output])
 
-    upload_or_move(job, input_args, output)
+    upload_or_move_hc(job, input_args, output)
 
 
 if __name__ == '__main__':
