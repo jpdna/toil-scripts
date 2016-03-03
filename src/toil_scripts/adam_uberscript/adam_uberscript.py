@@ -37,7 +37,6 @@ import boto.sdb
 from boto.ec2 import connect_to_region
 
 from automated_scaling import ClusterSize, Samples
-from toil_scripts.adam_uberscript.input_files import inputs
 
 metric_endtime_margin = timedelta(hours=1)
 metric_initial_wait_period_in_seconds = 0
@@ -126,6 +125,7 @@ def launch_pipeline(params):
                                '-o', 'StrictHostKeyChecking=no',
                                'screen', '-dmS', params.cluster_name])
 
+
         # do we have a defined master ip?
         masterIP_arg = ""
         if params.master_ip:
@@ -146,9 +146,10 @@ def launch_pipeline(params):
                             "--bwt {bwt} " +
                             "--pac {pac} " +
                             "--sa {sa} " +
-                            "--fai {fai} " +
-                            "--alt {alt} " +
-                            "--use_bwakit " +
+                            "--fai {fai} " ) 
+        if 'alt' in inputs:
+          pipeline_command +=   pipeline_command += "--alt {alt} "
+        pipeline_command += "--use_bwakit " +
                             "--num_nodes {s} " +
                             "--driver_memory {m} " +
                             "--executor_memory {m} " +
@@ -464,9 +465,12 @@ def main():
     parser_pipeline.add_argument('-m', '--memory', default='200g', help='The memory per worker node in GB') 
     parser_pipeline.add_argument('-f', '--file_size', default='100G', help='Approximate size of the BAM files')
     parser_pipeline.add_argument('-s', '--spark_nodes', default='9', help='The number of nodes needed for the spark cluster')
+
     parser_pipeline.add_argument('-SD', '--sequence_dir',
                                  help = 'Directory where raw sequences are.',
                                  default = 'sequence')
+
+    parser_pipeline.add_argument('-R', '--reference_genome', required=True, choices=['GRCh38','hg19'], help='Reference Genome to align and call against.  Choose between GRCh38 and hg19')
 
     # Launch Metric Collection
     parser_metric = subparsers.add_parser('launch-metrics', help='Launches metric collection thread')
