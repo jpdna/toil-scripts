@@ -125,28 +125,29 @@ def launch_pipeline(params):
                                '-o', 'StrictHostKeyChecking=no',
                                'screen', '-dmS', params.cluster_name])
 
+        # Run command on screen session  
 
-        # do we have a defined master ip?
-        masterIP_arg = ""
-        if params.master_ip:
-            masterIP_arg = "--master_ip %s" % params.master_ip
+        if params.reference_genome == 'GRCh38':
+            from toil_scripts.adam_uberscript.input_files import GRCh38_inputs as inputs
+        elif params.reference_genome == 'hg19':
+            from toil_scripts.adam_uberscript.input_files import hg19_inputs as inputs
+        else:
+            raise Exception("Invalid reference genome, reference should have been  validated as a choice during argument parsing.  Should not have reached this point, arg parsing code likely out of date.")
 
-        # Run command on screen session        
-        pipeline_command = ("PYTHONPATH=$PYTHONPATH:~/toil-scripts/src python -m toil_scripts.adam_gatk_pipeline.align_and_call " +
-                            "aws:{region}:{j} " +
-                            "--autoscale_cluster " +
-                            "--sequence_dir {sequence_dir} " +
-                            "--retryCount 1 " +
-                            "--s3_bucket {b} " +
-                            "--bucket_region {region} " +
-                            "--uuid_manifest ~/manifest " +
-                            "--ref {ref} " +
-                            "--amb {amb} " +
-                            "--ann {ann} " +
-                            "--bwt {bwt} " +
-                            "--pac {pac} " +
-                            "--sa {sa} " +
-                            "--fai {fai} " ) 
+        pipeline_command = "PYTHONPATH=$PYTHONPATH:~/toil-scripts/src python -m toil_scripts.adam_gatk_pipeline.align_and_call " + \
+                           "aws:{region}:{j} " + \
+                           "--autoscale_cluster " + \
+                           "--retryCount 1 " + \
+                           "--s3_bucket {b} " + \
+                           "--bucket_region {region} " + \
+                           "--uuid_manifest ~/manifest " + \
+                           "--ref {ref} " + \
+                           "--amb {amb} " + \
+                           "--ann {ann} " + \
+                           "--bwt {bwt} " + \
+                           "--pac {pac} " + \
+                           "--sa {sa} " + \
+                           "--fai {fai} "
         if 'alt' in inputs:
           pipeline_command +=   pipeline_command += "--alt {alt} "
         pipeline_command += "--use_bwakit " +
